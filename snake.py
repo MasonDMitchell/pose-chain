@@ -5,6 +5,8 @@ import numpy as np
 import scipy as sci
 from tools import bend,angle
 
+#Purpose of file is to test whole system and chain things together
+
 #Creating pi to reduce confusion
 pi = np.pi
 

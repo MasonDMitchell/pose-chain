@@ -6,30 +6,38 @@ plt.style.use('ggplot')
 fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 
-a=[]
-b=[]
-c=[]
+#Purpose of file is to demonstrate where cylinder can bend and the path it takes
+
+x=[]
+y=[]
+z=[]
+#initial pose
 sensor = [0,0,0]
+
+#calculating end points for positions
 for k in np.arange(0,2*np.pi,.4):
+    #calculating places in direction k with bend 0 to pi/2
     for i in np.arange(1.5,50,.4):
-        x= bend(300,sensor,np.pi/i,k)
-        a.append(x[0])
-        b.append(x[1])
-        c.append(x[2])
-    ax.scatter(a,b,c,depthshade=0,edgecolors='black',color='darkorange')
+        a= bend(300,sensor,np.pi/i,k)
+        x.append(a[0])
+        y.append(a[1])
+        z.append(a[2])
+    ax.scatter(x,y,z,depthshade=0,edgecolors='black',color='darkorange')
+    
+    #Calculating intermediate values to show path of cylinder
     for j in np.arange(1.5,50,.4):
-        a=[]
-        b=[]
-        c=[]
+        x=[]
+        y=[]
+        z=[]
         for i in np.arange(1,10,.1):
-            x = bend(300/i,sensor,np.pi/j/i,k)
-            a.append(x[0])
-            b.append(x[1])
-            c.append(x[2])
-        a.append(sensor[0])
-        b.append(sensor[1])
-        c.append(sensor[2])
-        ax.plot(a,b,c,color='black')
+            a = bend(300/i,sensor,np.pi/j/i,k)
+            x.append(a[0])
+            y.append(a[1])
+            z.append(a[2])
+        x.append(sensor[0])
+        y.append(sensor[1])
+        z.append(sensor[2])
+        ax.plot(x,y,z,color='black')
 
 ax.scatter(sensor[0],sensor[1],sensor[2],depthshade=0,edgecolors='black',color='darkred')
 ax.set_xlabel('X')

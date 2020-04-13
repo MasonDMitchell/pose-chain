@@ -6,6 +6,8 @@ import pandas as pd
 from magpylib.source.magnet import Cylinder, Box
 import magpylib as magpy
 
+#Purpose is to test the magpy package that will be used to read magnetic values
+
 #Can probably be made in a list then addressed from there
 mag = Box(mag=[500,0,500],dim=[5,5,5])
 mag2 = Box(mag=[500,0,500],dim=[2,2,2])
