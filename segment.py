@@ -1,5 +1,6 @@
 import numpy as np
 import scipy as sci
+from scipy.spatial.transform import Rotation as R
 import math
 
 class Segment:
@@ -21,7 +22,7 @@ class Segment:
         self.bend_direction = 0
         
         #Initial and final rotational vector
-        self.init_rotvec = [0,0,0]
+        self.init_rotvec = [0,0,1]
         self.final_rotvec = [0,0,0]
 
         self.circle_radius = -1
@@ -29,10 +30,30 @@ class Segment:
 
     def apply_rotvec(self,rotvec):
         
-        self.init_rotvec = rotvec
+        
+        rotation_vector = np.cross(self.init_rotvec,rotvec)
+               
+        normalize = np.linalg.norm(rotation_vector)
 
-        update_bend(bend_angle,bend_direction)
-        return
+        if normalize == 0:
+            self.update_bend()
+            return self.magnet_pose
+ 
+        rotation_vector = rotation_vector / normalize
+       
+        angle = np.arccos(np.dot(self.init_rotvec,rotvec)/(np.linalg.norm(self.init_rotvec)*np.linalg.norm(rotvec))) 
+    
+        rotation_vector = rotation_vector * angle
+
+        rotate = R.from_rotvec(rotation_vector)
+
+        self.update_bend()
+        
+        self.magnet_pose = rotate.apply(self.magnet_pose)
+
+        self.final_rotvec = rotate.apply(self.final_rotvec)
+
+        return self.magnet_pose
 
     def update_bend(self):
         
