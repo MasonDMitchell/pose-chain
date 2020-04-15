@@ -30,9 +30,16 @@ class Segment:
 
     def apply_rotvec(self,rotvec):
         
-        
-        rotation_vector = np.cross(self.init_rotvec,rotvec)
-               
+        if(np.sum(np.add(self.init_rotvec,rotvec)) == 0):
+            if self.init_rotvec[1] == 0 and self.init_rotvec[2] == 0:
+                if self.init_rotvec[0] == 0:
+                    raise ValueError('zero vector')
+                else:
+                    rotation_vector = np.cross(self.init_rotvec, [0, 1, 0])
+            rotation_vector = np.cross(self.init_rotvec, [1, 0, 0])
+        else:
+            rotation_vector = np.cross(self.init_rotvec,rotvec)
+
         normalize = np.linalg.norm(rotation_vector)
 
         if normalize == 0:
@@ -53,7 +60,7 @@ class Segment:
 
         self.final_rotvec = rotate.apply(self.final_rotvec)
 
-        return self.magnet_pose
+        return self.magnet_pose, self.final_rotvec
 
     def update_bend(self):
         
@@ -80,3 +87,24 @@ class Segment:
         self.final_rotvec = [np.cos(self.bend_direction)*np.sin(self.bend_angle),np.sin(self.bend_direction)*np.sin(self.bend_angle),np.cos(self.bend_angle)]
 
         return self.magnet_pose, self.final_rotvec
+
+    def bend_line(self,rotvec):
+        x = self.bend_angle
+        y = self.segment_length
+        line_x = []
+        line_y = []
+        line_z = []
+        for i in np.arange(1,10,.1):
+            self.bend_angle = x/i
+            self.segment_length = y/i
+            self.apply_rotvec(rotvec)
+
+            line_x.append(self.magnet_pose[0])
+            line_y.append(self.magnet_pose[1])
+            line_z.append(self.magnet_pose[2])
+
+        line_x.append(0)
+        line_y.append(0)
+        line_z.append(0)
+
+        return line_x, line_y, line_z

@@ -9,10 +9,6 @@ plt.style.use('ggplot')
 fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 
-line_x=[]
-line_y=[]
-line_z=[]
-
 mag_x = []
 mag_y = []
 mag_z = []
@@ -40,20 +36,10 @@ for i in np.arange(0,2*np.pi/4,.25):
 
         ax.quiver(seg.magnet_pose[0],seg.magnet_pose[1],seg.magnet_pose[2],50*seg.final_rotvec[0],50*seg.final_rotvec[1],50*seg.final_rotvec[2],color='blue')
 
-        for k in np.arange(1,10,.1):
-            seg.bend_angle = math.pi/j/k
-            seg.segment_length = 300/k
-            seg.apply_rotvec(rotvec)
-    
-            line_x.append(seg.magnet_pose[0])
-            line_y.append(seg.magnet_pose[1])
-            line_z.append(seg.magnet_pose[2])
-
+        line = seg.bend_line(rotvec)
         
-        ax.plot(line_x,line_y,line_z,color='black')
-        line_x=[]
-        line_y=[]
-        line_z=[]
+        ax.plot(line[0],line[1],line[2],color='black')
+
 
 ax.scatter(mag_x,mag_y,mag_z,depthshade=0,edgecolors='black',color='darkorange')
 ax.scatter(0,0,0,depthshade=0,edgecolors='black',color='darkred')
