@@ -14,7 +14,7 @@ mag_x = []
 mag_y = []
 mag_z = []
 
-rotvec = [1,0,1]
+rotvec = [1,1,0]
 
 rotvec = rotvec / np.linalg.norm(rotvec)
 
@@ -22,12 +22,11 @@ mag = []
 sen = []
 for i in np.arange(0,2*np.pi,np.pi/4):
     for j in np.arange(2,20,.75):
-
         seg = Segment()
         seg.update_pose([50,0,50])
         seg.bend_angle = math.pi/j
         seg.bend_direction = i
-        seg.apply_rotvec(rotvec)
+        seg.apply_rotvec(rotvec,[1,0,0])
 
         mag.append(seg.magnet)
         sen.append(seg.sensor)

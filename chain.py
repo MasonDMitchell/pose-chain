@@ -26,7 +26,10 @@ class Chain:
     def update_chain(self):
         #Ensure initial pose & rotvec are accurate
         self.segments[0].update_pose(self.start_pose)
-        self.segments[0].apply_rotvec(self.start_rotvec)
+        
+        #TODO Fix magic orientation rotvec
+        self.segments[0].apply_rotvec(self.start_rotvec,[1,0,0])
+        print(self.segments[0].orientation_rotvec)
 
         #Loop for all other segments except the first one as they are determined by previous segment
         for i in np.arange(1,self.segment_amount,1):
@@ -40,7 +43,7 @@ class Chain:
             new_pos = [a+b for a,b in zip(self.segments[i-1].magnet_pose,module_difference)]
             #update segment and apply the most updated vector
             self.segments[i].update_pose(new_pos)
-            self.segments[i].apply_rotvec(prev_rotvec) 
+            self.segments[i].apply_rotvec(prev_rotvec,self.segments[i-1].orientation_rotvec) 
 
         return
 

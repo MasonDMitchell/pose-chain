@@ -13,14 +13,14 @@ fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 
 #Amount of segments in chain
-segment_amount = 3
+segment_amount = 2
 
 #Initialize class with segment amount
 chain = Chain(segment_amount)
 
 #Set bends for each segment 
-for i in range(segment_amount):
-    chain.bend_segment(i,np.pi/2,np.pi/4)
+chain.bend_segment(0,np.pi/2,np.pi/4)
+chain.bend_segment(1,np.pi/2,0)
 #Update chain, always do after changing bend segments
 chain.update_chain()
 #Calculate lines from sensor to magnets for visualization
@@ -45,6 +45,10 @@ for i in range(segment_amount):
 c = magpy.Collection(mag)
 markerPos = [(0,0,0,'origin')]
 #sen[0].getB(c)
+
+#print(mag[1].angle)
+#mag[1].rotate(-135,chain.segments[1].final_rotvec)
+#print(mag[1].angle)
 
 #Plot magnets and show plot
 magpy.displaySystem(c,subplotAx=ax,suppress=True,markers=markerPos)
