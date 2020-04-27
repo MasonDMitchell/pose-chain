@@ -29,11 +29,9 @@ class Chain:
         
         #TODO Fix magic orientation rotvec
         self.segments[0].apply_rotvec(self.start_rotvec,[1,0,0])
-        print(self.segments[0].orientation_rotvec)
 
         #Loop for all other segments except the first one as they are determined by previous segment
         for i in np.arange(1,self.segment_amount,1):
-
             #New rotvec for segment sensor
             prev_rotvec = self.segments[i-1].final_rotvec
             #Difference of position from module length
@@ -43,12 +41,13 @@ class Chain:
             new_pos = [a+b for a,b in zip(self.segments[i-1].magnet_pose,module_difference)]
             #update segment and apply the most updated vector
             self.segments[i].update_pose(new_pos)
-            self.segments[i].apply_rotvec(prev_rotvec,self.segments[i-1].orientation_rotvec) 
+            self.segments[i].apply_rotvec(prev_rotvec,self.segments[i-1].applied_rotvec) 
 
         return
 
     #Change the bend of any segment, afterwards update_chain should be run
     def bend_segment(self,segment,bend_angle,bend_direction):
+        #TODO segment is a valid number
 
         #Update constants
         self.segments[segment].bend_angle = bend_angle

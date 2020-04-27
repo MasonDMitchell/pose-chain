@@ -5,6 +5,8 @@ import math
 import magpylib as magpy
 from magpylib.source.magnet import Box
 
+#Sensor standard deviation 2.576 +-500 G
+
 class Segment:
 
     def __init__(self):
@@ -37,10 +39,7 @@ class Segment:
         self.init_rotvec = [0,0,1]
         self.applied_rotvec = [0,0,1]
         self.final_rotvec = [0,0,0]
-
-        #Orientation_vector
-        self.orientation_rotvec=[0,0,0]
-        self.applied_orientation_rotvec = [1,0,0]
+        self.prev_rotvec = [0,0,1]
 
         self.circle_radius = -1
 
@@ -48,7 +47,9 @@ class Segment:
         self.sensor = magpy.Sensor(pos=self.sensor_pose)
         self.magnet = Box(mag=self.magnetization,dim=self.magnet_dimension,pos=self.magnet_pose)
 
+        self.rotate = False
 
+        self.test = [1,0,0]
 
         return 
 
@@ -70,20 +71,14 @@ class Segment:
 
     def find_rotvec(self,rotvec):
         
-        #Determine if vector given is in same direction, or exact opposite direction of current init rotvec
-        #TODO add orientation rotvec to ensure correct orientation of assumed vector
-
+        #Determine if vector given is in same direction, or exact opposite direction of current init rotvec  
         if(np.array_equal(np.around(self.init_rotvec,decimals=5),np.around(rotvec,decimals=5)) or np.array_equal(np.around(self.init_rotvec,decimals=5),-np.around(rotvec,decimals=5))):
             if abs(self.init_rotvec[1]) < .00001 and abs(self.init_rotvec[2]) < .00001:
                 if self.init_rotvec[0] == 0:
                     raise ValueError('zero vector')
                 else: 
-                    print("wrong one")
                     rotation_vector = np.cross(self.init_rotvec, [0,0,1])
-            #TESTING
-            vec = np.cross(self.final_rotvec,self.applied_orientation_rotvec)
-
-            rotation_vector = np.cross(self.init_rotvec, vec)
+            rotation_vector = np.cross(self.init_rotvec, [1,0,0])
         else:
             rotation_vector = np.cross(self.init_rotvec,rotvec)
 
@@ -96,6 +91,11 @@ class Segment:
         rotation_vector = rotation_vector / normalize
        
         angle = np.arccos(np.dot(self.init_rotvec,rotvec)/(np.linalg.norm(self.init_rotvec)*np.linalg.norm(rotvec))) 
+        sin = np.dot(np.cross(rotation_vector,self.init_rotvec),rotvec)/(np.linalg.norm(self.init_rotvec)*np.linalg.norm(rotvec))
+
+        if(sin < 0):
+            print("sin")
+            angle = 2*math.pi-angle
 
         rotation_vector = rotation_vector * angle
         normalize = np.linalg.norm(rotation_vector)
@@ -103,16 +103,16 @@ class Segment:
         if normalize == 0:
             rotation_vector = [0,0,0]
             return rotation_vector, normalize, 0
+
         return rotation_vector, normalize, angle
 
-    def apply_rotvec(self,rotvec,orientation_vec):
+    def apply_rotvec(self,rotvec,prev_rotvec):
 
         self.update_bend()
 
-        self.applied_orientation_rotvec = orientation_vec
-
         rotation_vector, normalize, angle = self.find_rotvec(rotvec)
 
+        self.prev_rotvec = prev_rotvec
         self.applied_rotvec = rotvec
 
         if normalize == 0:
@@ -120,27 +120,45 @@ class Segment:
             return self.magnet_pose
  
         rotate = R.from_rotvec(rotation_vector)
-        
+        self.test=rotation_vector        
         #Rotate magnet pose, and final rotvec 
         self._magnet_pose = rotate.apply(self._magnet_pose)
 
         self.final_rotvec = rotate.apply(self.final_rotvec)
+
+        #Set rotvec to have length of 1
+        rotvec_normalize = np.linalg.norm(self.final_rotvec)
         
+        self.final_rotvec = [a / rotvec_normalize for a in self.final_rotvec]
+
         #Set rotvec to have length of 1
         rotvec_normalize = np.linalg.norm(self.final_rotvec)
         
         self.final_rotvec = [a / rotvec_normalize for a in self.final_rotvec]
 
         #Update magnet and sensor orientation and position
-        self.sensor.setOrientation(axis=rotation_vector,angle=(180*angle)/math.pi)
+ 
+        if(False):
+            self.spin(np.pi)
+        else:
+            self.sensor.setOrientation(axis=rotation_vector,angle=(180*angle)/math.pi)
+            if(normalize > .00001):        
 
-        if(normalize > .00001):        
-
-            self.magnet.rotate(axis=rotation_vector,angle=(180*angle)/math.pi,anchor=self._sensor_pose)
+                self.magnet.rotate(axis=rotation_vector,angle=(180*angle)/math.pi,anchor=self._sensor_pose)
 
         self.update_pose(self.pose_difference)        
 
         return self.magnet_pose, self.final_rotvec,self.magnet,self.sensor
+
+    def spin(self,angle):
+        rotate = R.from_rotvec((self.applied_rotvec / np.linalg.norm(self.applied_rotvec)) * angle)
+        self._magnet_pose = rotate.apply(self._magnet_pose)
+        self.final_rotvec = rotate.apply(self.final_rotvec)
+        self.magnet.setPosition(np.array(self.magnet.position)-np.array(self.pose_difference))
+        self.magnet.rotate(axis=self.applied_rotvec,angle=(180*angle)/math.pi,anchor=self._sensor_pose)
+        self.magnet.setPosition(np.array(self.magnet.position)+np.array(self.pose_difference))
+        self.update_pose(self.pose_difference)        
+        return
 
     def update_bend(self):
         
@@ -169,12 +187,6 @@ class Segment:
         #vector        
         self.final_rotvec = [np.cos(self.bend_direction)*np.sin(self.bend_angle),np.sin(self.bend_direction)*np.sin(self.bend_angle),np.cos(self.bend_angle)]
 
-        if(self.init_rotvec == self.final_rotvec):
-            #Arbitrary
-            self.orientation_rotvec = [1,0,0]
-        else:
-            self.orientation_rotvec = np.cross(self.init_rotvec,self.final_rotvec)
-
         rotation_vector, normalize, angle = self.find_rotvec(self.final_rotvec)
 
         if(normalize > .00001):
@@ -194,7 +206,7 @@ class Segment:
         for i in np.arange(1,10,.3):
             self.bend_angle = x/i
             self.segment_length = y/i
-            self.apply_rotvec(rotvec,self.applied_orientation_rotvec)
+            self.apply_rotvec(rotvec,self.prev_rotvec)
 
             line_x.append(self.magnet_pose[0])
             line_y.append(self.magnet_pose[1])
@@ -207,6 +219,6 @@ class Segment:
         self.bend_angle = x
         self.segment_length = y 
 
-        self.apply_rotvec(rotvec,self.applied_orientation_rotvec)
+        self.apply_rotvec(rotvec,self.prev_rotvec)
 
         return line_x, line_y, line_z

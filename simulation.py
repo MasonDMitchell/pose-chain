@@ -13,14 +13,15 @@ fig = plt.figure()
 ax = fig.add_subplot(111,projection='3d')
 
 #Amount of segments in chain
-segment_amount = 3
+segment_amount = 20
 
 #Initialize class with segment amount
 chain = Chain(segment_amount)
 
 #Set bends for each segment 
 for i in range(segment_amount):
-    chain.bend_segment(i,np.pi/2,np.pi/4)
+    chain.bend_segment(i,np.pi/2,np.pi/4+(i*.1))
+    #print(np.pi/4+(i*.1))
 #Update chain, always do after changing bend segments
 chain.update_chain()
 #Calculate lines from sensor to magnets for visualization
