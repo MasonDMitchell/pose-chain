@@ -125,6 +125,7 @@ class Chain:
             segment_t = t_array[np.logical_and(
                 segment_idx <= t_array,
                 segment_idx + 1 > t_array)]
+            segment_t = np.mod(segment_t,1)
             
             seg_orientations = self._segments[segment_idx].GetOrientations(segment_t)
             seg_orientations = seg_orientations * start_orientation
@@ -142,11 +143,13 @@ if __name__ == "__main__":
 
     segment_list.append(LineSegment(10))
     segment_list.append(CircleSegment(20,2,-np.pi/2))
+    segment_list.append(LineSegment(10))
+    segment_list.append(CircleSegment(20,3,0))
     segment_list.append(LineSegment(20))
 
     chain = Chain(segment_list=segment_list)
 
-    t_array = np.linspace(0,4,num=40)
+    t_array = np.linspace(0,5,num=40)
 
     chain_points = chain.GetPoints(t_array)
 
@@ -166,6 +169,10 @@ if __name__ == "__main__":
             tangent_vecs[:,0],
             tangent_vecs[:,1],
             tangent_vecs[:,2])
+
+    ax.set_xlim(0,30)
+    ax.set_ylim(0,30)
+    ax.set_zlim(-30,0)
 
     plt.show()
 
