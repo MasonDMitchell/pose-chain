@@ -1,3 +1,5 @@
+from scipy.spatial.transform import Rotation as R
+
 class Chain:
     def __init__(self, 
             segment_count = 5, 
@@ -15,7 +17,7 @@ class Chain:
         if start_location is None:
             start_location = np.array([0,0,0])
         if start_orientation is None:
-            start_orientation = np.array([0,0,0])
+            start_orientation = R.from_rotvec([0,0,0])
 
         self._start_location = start_location
         self._start_orientation = start_orientation
