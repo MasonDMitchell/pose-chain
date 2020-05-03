@@ -175,7 +175,6 @@ class CircleSegment(Segment):
 
     def _UpdateFinalOrientation(self):
         self._final_orientation = self.GetOrientations(np.array([1]))[0]
-        print("Final Orientation: {}".format(self._final_orientation.as_euler('xyz')))
 
     def _UpdateRadius(self):
         if math.isclose(self.bend_angle,0):
