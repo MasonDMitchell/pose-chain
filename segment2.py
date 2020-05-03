@@ -35,7 +35,7 @@ class Segment(metaclass=ABCMeta):
     def GetOrientations(self,t_array=None):
         pass
 
-class LineSegment:
+class LineSegment(Segment):
     def __init__(self,
             segment_length=50):
         
@@ -99,7 +99,7 @@ class LineSegment:
 
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 
-class CircleSegment:
+class CircleSegment(Segment):
     def __init__(self, 
             segment_length=300, 
             bend_angle=0,
@@ -175,6 +175,7 @@ class CircleSegment:
 
     def _UpdateFinalOrientation(self):
         self._final_orientation = self.GetOrientations(np.array([1]))[0]
+        print("Final Orientation: {}".format(self._final_orientation.as_euler('xyz')))
 
     def _UpdateRadius(self):
         if math.isclose(self.bend_angle,0):
