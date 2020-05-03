@@ -78,7 +78,7 @@ class Chain:
         for segment_idx in range(self.segment_count):
             delta_orientation = self._segments[segment_idx].final_orientation
             orientations.append(
-                    delta_orientation * orientations[-1])
+                    orientations[-1] * delta_orientation)
 
         self._segment_orientations = orientations[:-1]
 
@@ -126,9 +126,14 @@ class Chain:
                 segment_idx <= t_array,
                 segment_idx + 1 > t_array)]
             segment_t = np.mod(segment_t,1)
+
+            print("Segment {}".format(segment_idx + 1))
             
             seg_orientations = self._segments[segment_idx].GetOrientations(segment_t)
-            seg_orientations = seg_orientations * start_orientation
+            print(seg_orientations.as_euler('xyz'))
+            seg_orientations = start_orientation * seg_orientations
+
+            print(seg_orientations.as_euler('xyz'))
 
             [orientation_list.append(quat) for quat in seg_orientations.as_quat()]
 
@@ -141,10 +146,10 @@ if __name__ == "__main__":
     from segment2 import LineSegment, CircleSegment
     segment_list = []
 
-    segment_list.append(LineSegment(10))
-    segment_list.append(CircleSegment(20,2,-np.pi/2))
-    segment_list.append(LineSegment(10))
-    segment_list.append(CircleSegment(20,3,0))
+    #segment_list.append(LineSegment(10))
+    segment_list.append(CircleSegment(20,np.pi/4,-np.pi/2))
+    #segment_list.append(LineSegment(10))
+    segment_list.append(CircleSegment(20,3*np.pi/2,0.))
     segment_list.append(LineSegment(20))
 
     chain = Chain(segment_list=segment_list)
