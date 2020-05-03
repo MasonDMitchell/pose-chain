@@ -15,6 +15,12 @@ class Segment(metaclass=ABCMeta):
     def final_orientation(self):
         pass
 
+    # every child class must provide a method which 
+    # takes some subset of its properties to set
+    @abstractmethod
+    def SetProperties():
+        pass
+
     # returns x,y,z coordinates for each t in t_array
     # t varies from 0 to 1
     # t_array can contain a single element
@@ -22,10 +28,8 @@ class Segment(metaclass=ABCMeta):
     def GetPoints(self,t_array=None):
         pass
 
-    # every child class must provide a method which 
-    # takes some subset of its properties to set
     @abstractmethod
-    def SetProperties():
+    def GetOrientations(self,t_array=None):
         pass
 
 class LineSegment:
@@ -76,6 +80,8 @@ class LineSegment:
 # other functions
 
     def GetPoints(self,t_array=None):
+        if t_array is None:
+            return np.array([]).reshape((0,3))
         assert(len(t_array.shape) == 1)
 
         # linear interpolation between 0,0,0 and end_point by t
@@ -83,6 +89,11 @@ class LineSegment:
         point_array = end_point * np.expand_dims(t_array,1)
 
         return point_array
+
+    def GetOrientations(self, t_array = None):
+        if t_array is None:
+            return np.array([]).reshape((0,3))
+        assert(len(t_array.shape) == 1)
 
 class CircleSegment:
     def __init__(self, 
@@ -160,15 +171,23 @@ class CircleSegment:
         # placeholder function
         self._final_orientation = np.array([0,0,0])
 
+        # uncomment and delete previous line once GetPoints is implemented
+        #self._final_orientation = self.GetOrientations(np.array([1]))[0]
+
 # other functions ig
 
-    def GetPoints(self,t_array=None):
+    def GetPoints(self,t_array = None):
         if t_array is None:
             return np.array([]).reshape((0,3))
+        assert(len(t_array.shape) == 1)
 
         # placeholder return value
         return np.array([]).reshape((0,3))
 
+    def GetOrientations(self, t_array = None):
+        if t_array is None:
+            return np.array([]).reshape((0,3))
+        assert(len(t_array.shape) == 1)
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
