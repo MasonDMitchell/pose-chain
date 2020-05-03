@@ -16,7 +16,7 @@ class Chain:
         else:
             self._segment_count = len(segment_list)
             assert all([isinstance(segment,Segment) for segment in segment_list])
-            self._segments = [copy.deepcopy(segment) for segment in segment_list]
+            self._segments = copy.deepcopy(segment_list)
 
         if start_location is None:
             start_location = np.array([0,0,0])
@@ -34,11 +34,6 @@ class Chain:
     def segment_count(self):
         return self._segment_count
 
-    #This is not intended as a way to modify segments
-    @property
-    def segments(self):
-        return self._segments
-
     #Generic function for setting properties of any type of segment
     def SetSegmentProperties(idx,*args,**kwargs):
         self._segments[idx].SetProperties(*args,**kwargs)
@@ -46,6 +41,9 @@ class Chain:
         self._UpdateCalculatedProperties()
 
 # calculated getters and related functions
+
+    def GetSegments(self):
+        return copy.deepcopy(self._segments)
 
     @property
     def segment_locations(self):
