@@ -95,10 +95,7 @@ class Chain:
             start_orientation = self._segment_orientations[segment_idx]
             start_position = self._segment_locations[segment_idx]
 
-            segment_t = t_array[np.logical_and(
-                segment_idx <= t_array,
-                segment_idx + 1 > t_array)]
-            segment_t = np.mod(segment_t,1)
+            segment_t = self.__GetSegmentIndices(segment_idx,t_array)
 
             seg_points = self._segments[segment_idx].GetPoints(segment_t)
             seg_points = start_orientation.apply(seg_points)
@@ -120,10 +117,7 @@ class Chain:
         for segment_idx in range(self.segment_count):
             start_orientation = self._segment_orientations[segment_idx]
 
-            segment_t = t_array[np.logical_and(
-                segment_idx <= t_array,
-                segment_idx + 1 > t_array)]
-            segment_t = np.mod(segment_t,1)
+            segment_t = self.__GetSegmentIndices(segment_idx,t_array)
 
             seg_orientations = self._segments[segment_idx].GetOrientations(segment_t)
             seg_orientations = start_orientation * seg_orientations
@@ -133,6 +127,27 @@ class Chain:
         orientations = R.from_quat(orientation_list)
 
         return orientations
+
+    # find the subset of t_array which is in the specified segment and 
+    # map those values to 0-1
+    def __GetSegmentIndices(self, segment_idx, t_array):
+
+        #handle end conditions for last segment
+        if segment_idx < self.segment_count - 1:
+            include_bool = np.logical_and(
+                    segment_idx <= t_array,
+                    segment_idx + 1 > t_array)
+        else:
+            include_bool = np.logical_and(
+                    segment_idx <= t_array,
+                    segment_idx + 1 >= t_array)
+
+        segment_t = t_array[include_bool] # subset of t_array in segment
+        segment_t = np.mod(segment_t,1) # map to 0-1 space
+
+        return segment_t
+
+
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
@@ -176,6 +191,8 @@ if __name__ == "__main__":
     ax.set_xlim(0,30)
     ax.set_ylim(0,30)
     ax.set_zlim(-30,0)
+
+    print(chain.GetPoints(np.array([5])))
 
     plt.show()
 
