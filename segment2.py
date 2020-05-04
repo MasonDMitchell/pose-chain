@@ -96,6 +96,9 @@ class LineSegment(Segment):
         if t_array is None:
             return []
         assert(len(t_array.shape) == 1)
+        #TODO See if this is correct
+        if(t_array.shape[0] == 0):
+            return R.from_rotvec([[0,0,0]])
 
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 

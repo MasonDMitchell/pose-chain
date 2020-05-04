@@ -169,7 +169,7 @@ if __name__ == "__main__":
 
     t_array = np.linspace(0,5,num=40)
 
-    chain_points = chain.GetPoints(t_array)
+    chain_points = chain.getpoints(t_array)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
