@@ -94,11 +94,10 @@ class LineSegment(Segment):
 
     def GetOrientations(self, t_array = None):
         if t_array is None:
-            return []
+            return R.from_rotvec(np.array([]).reshape((0,3)))
         assert(len(t_array.shape) == 1)
-        #TODO See if this is correct
-        if(t_array.shape[0] == 0):
-            return R.from_rotvec([[0,0,0]])
+        if t_array.shape[0] == 0:
+            return R.from_rotvec(np.array([]).reshape((0,3)))
 
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 
@@ -206,8 +205,10 @@ class CircleSegment(Segment):
 
     def GetOrientations(self, t_array = None):
         if t_array is None:
-            return []
+            return R.from_rotvec(np.array([]).reshape((0,3)))
         assert(len(t_array.shape) == 1)
+        if t_array.shape[0] == 0:
+            return R.from_rotvec(np.array([]).reshape((0,3)))
 
         norm_y = -np.sin(self.bend_direction)
         norm_z = np.cos(self.bend_direction)
@@ -240,6 +241,9 @@ if __name__ == "__main__":
 
     line_orientations = line.GetOrientations(t_array)
     arc_orientations = arc.GetOrientations(t_array)
+
+    line.GetOrientations()
+    arc.GetOrientations()
 
     tangent = np.array([1,0,0])
     normal = np.array([0,1,0])

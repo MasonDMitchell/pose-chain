@@ -119,6 +119,9 @@ class Chain:
 
             segment_t = self.__GetSegmentIndices(segment_idx,t_array)
 
+            if segment_t.shape[0] == 0:
+                continue
+
             seg_orientations = self._segments[segment_idx].GetOrientations(segment_t)
             seg_orientations = start_orientation * seg_orientations
 
@@ -143,11 +146,9 @@ class Chain:
                     segment_idx + 1 >= t_array)
 
         segment_t = t_array[include_bool] # subset of t_array in segment
-        segment_t = np.mod(segment_t,1) # map to 0-1 space
+        segment_t = segment_t - segment_idx # map to 0-1 space
 
         return segment_t
-
-
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
