@@ -2,8 +2,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 from matplotlib import animation
+import magpylib as magpy
 class Animate:
-    def __init__(self,all_points):
+    def __init__(self,all_points,collection=None):
         self.all_points = all_points
         self.lim = [[-100,100],[-100,100],[-100,100]]
         self.rotate = False
@@ -11,6 +12,8 @@ class Animate:
         self.save = False
         self.filename = "unnamed"
         self.dpi = 50
+        if collection is not None:
+            self.collection = collection
         plt.style.use('ggplot')
 
         self.fig = plt.figure()
@@ -39,9 +42,10 @@ class Animate:
 
     def _PlotAnimate(self,i):
         if self.rotate is True:
-            self.ax.view_init(azim=130+(i*.3))
+            self.ax.view_init(azim=130+(i*.6))
         self.line.set_data(self.all_points[i][:,0],self.all_points[i][:,1])
         self.line.set_3d_properties(self.all_points[i][:,2])
+       #magpy.displaySystem(self.collection,subplotAx=self.ax,suppress=True)
         return self.line,
     
     def Plot(self):
@@ -59,17 +63,17 @@ class Animate:
         blitting = True
         if self.show is True and self.rotate is True:
             blitting = False
-        anim = animation.FuncAnimation(self.fig, self._PlotAnimate, init_func=self._PlotInit, frames = len(all_points), interval=20, blit = blitting)
+        anim = animation.FuncAnimation(self.fig, self._PlotAnimate, init_func=self._PlotInit, frames = len(self.all_points), interval=20, blit = blitting)
         
         if self.show is True:
             plt.show()
 
         if self.save is True:
-            anim.save('videos/' + str(self.filename) + '.mp4', fps=80, bitrate= (self.dpi*8), dpi= self.dpi, extra_args=['-vcodec','libx264'])
+            anim.save('videos/' + str(self.filename) + '.mp4', fps=40, extra_args=['-vcodec','libx264'])
 
 if __name__ == "__main__":
     import pickle
     all_points = pickle.load(open("data/test.p","rb"))
     plot = Animate(all_points)
-    plot.SetParameters(save=True,rotate=True,dpi=100)
+    plot.SetParameters(show=True,rotate=True,dpi=100)
     plot.Plot()

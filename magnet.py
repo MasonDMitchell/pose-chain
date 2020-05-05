@@ -5,6 +5,7 @@ import numpy as np
 import magpylib as magpy
 from animation import Animate
 from magpylib.source.magnet import Box
+from segment2 import Segment, LineSegment, CircleSegment
 
 class Magnet:
     def __init__(self, chain):
@@ -21,10 +22,6 @@ class Magnet:
             self.dimension = dimension
 
     def PlaceMagnets(self):
-        #final_orientation returns final rotation vector of the segment
-        #Get_Points([0]) for beginning of segment
-        #Get_Points([1]) for end of segment
-        #GetOrientations([0]) gives scipy rotation for beginning of segment
 
         self.magnets = []
         self.sensors = []
@@ -38,39 +35,39 @@ class Magnet:
         final_orient = self.chain.GetOrientations(final_linspace)
 
         for i in range(self.chain._segment_count):
-            self.sensors.append(magpy.Sensor(pos=init_pose[i]))
-            self.magnets.append(Box(mag=self.magnetization,dim=self.dimension,pos=final_pose[i]))
-            self.sensors[i].setOrientation(axis=init_orient[i].apply([1,0,0]),angle=(len(init_orient[i])*180)/math.pi)
-            self.magnets[i].setOrientation(axis=final_orient[i].apply([1,0,0]),angle=(len(final_orient[i])*180)/math.pi)
+            self.sensors.append(magpy.Sensor(pos=init_pose[i],axis=[0,1,0],angle=90))
+            self.magnets.append(Box(mag=self.magnetization,dim=self.dimension,pos=final_pose[i],axis=[0,1,0],angle=90))
+
+            rotvec_orient = init_orient[i].as_rotvec()
+            if np.array_equal(init_orient[i].apply([1.,0.,0.]),[1.,0.,0.]) is False and np.sum(np.absolute(rotvec_orient)) is not 0:
+                self.sensors[i].rotate(axis=rotvec_orient,angle=(np.linalg.norm(rotvec_orient)*180)/np.pi)
+
+            rotvec_orient = final_orient[i].as_rotvec()
+            if np.array_equal(final_orient[i].apply([1.,0.,0.]),[1.,0.,0.]) is False and np.sum(np.absolute(rotvec_orient)) is not 0:
+                self.magnets[i].rotate(axis=rotvec_orient,angle=(np.linalg.norm(rotvec_orient)*180)/np.pi)
 
         return magpy.Collection(self.magnets)
 
 if __name__ == "__main__":
     from chain2 import Chain
     from segment2 import LineSegment,CircleSegment
+    from animation import Animate
 
     segment_list = []
-    segment_list.append(LineSegment(80))
-    segment_list.append(CircleSegment(100,np.pi/4,-np.pi/2))
+    for i in range(10):
+        segment_list.append(CircleSegment(100,np.pi/2,np.pi/2+(.1*i)+.1))
 
     chain = Chain(segment_list=segment_list)
-    t_array = np.linspace(0,2,num=20)
+    t_array = np.linspace(0,10,num=100)
 
-    chain_points = chain.GetPoints(t_array)
+    all_points = []
+    for i in range(400):
+        chain_points = chain.GetPoints(t_array)
+        all_points.append(chain_points)
 
     x = Magnet(chain)
     c = x.PlaceMagnets()
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    magpy.displaySystem(c,subplotAx=ax,suppress=True,sensors=x.sensors)
-
-    ax.plot(chain_points[:,0],
-            chain_points[:,1],
-            chain_points[:,2])
-    ax.set_xlim(-100,100)
-    ax.set_ylim(-100,100)
-    ax.set_zlim(-100,100)
-
-    plt.show()
+    plot = Animate(all_points,c) 
+    plot.SetParameters(save=True,dpi=144,rotate=True)
+    plot.Plot()

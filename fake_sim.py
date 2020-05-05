@@ -10,26 +10,18 @@ all_points = []
 for k in np.arange(0,np.pi*2,.1):
     for j in range(2):
         if(j==0):
-            for i in np.arange(.5,np.pi/2,.05):
-                segment_list.append(LineSegment(10))
-                segment_list.append(CircleSegment(circle_segment_length,i,k))
-                segment_list.append(LineSegment(10))
-                segment_list.append(CircleSegment(circle_segment_length,i,k))
+            for i in np.arange(.05,np.pi/2,.05):
                 segment_list.append(LineSegment(10))
                 segment_list.append(CircleSegment(circle_segment_length,i,k))
                 chain = chain2.Chain(segment_list=segment_list)
-                all_points.append(chain.GetPoints(np.linspace(0,6,num=60)))
+                all_points.append(chain.GetPoints(np.linspace(0,2,num=20)))
                 segment_list = []
         else:
-            for i in np.arange(np.pi/2,.5,-.05):
-                segment_list.append(LineSegment(10))
-                segment_list.append(CircleSegment(circle_segment_length,i,k))
-                segment_list.append(LineSegment(10))
-                segment_list.append(CircleSegment(circle_segment_length,i,k))
+            for i in np.arange(np.pi/2,.05,-.05):
                 segment_list.append(LineSegment(10))
                 segment_list.append(CircleSegment(circle_segment_length,i,k))
                 chain = chain2.Chain(segment_list=segment_list)
-                all_points.append(chain.GetPoints(np.linspace(0,6,num=60)))
+                all_points.append(chain.GetPoints(np.linspace(0,2,num=20)))
                 segment_list = []
 
 print(len(all_points))
