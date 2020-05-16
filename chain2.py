@@ -3,6 +3,7 @@ import numpy as np
 from segment2 import Segment
 import copy
 
+
 class Chain:
     def __init__(self, 
             segment_count = 5, 
@@ -81,7 +82,7 @@ class Chain:
         self._segment_orientations = orientations[:-1]
 
 # other functions
-    
+
     # t_array is an array of floats from 0 to segment_count
     def GetPoints(self, t_array = None):
         if t_array is None:
@@ -105,7 +106,7 @@ class Chain:
 
         points = np.array(point_list)
         return points
-        
+
     def GetOrientations(self, t_array = None):
         if t_array is None:
             return np.array([]).reshape((0,3))
@@ -194,6 +195,5 @@ if __name__ == "__main__":
     ax.set_zlim(-30,0)
 
     print(chain.GetPoints(np.array([5])))
-
     plt.show()
 
