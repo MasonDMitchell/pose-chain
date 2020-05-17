@@ -4,7 +4,7 @@ from scipy.spatial.transform import Rotation as R
 import numpy as np
 import math
 
-class Segment(metaclass=ABCMeta):
+class AbstractSegment(metaclass=ABCMeta):
     def __init__(self):
         pass
 
@@ -17,10 +17,15 @@ class Segment(metaclass=ABCMeta):
     def final_orientation(self):
         pass
 
+    # number of arguments in SetProperties
+    @abstractproperty
+    def parameter_count(self):
+        pass
+
     # every child class must provide a method which 
     # takes some subset of its properties to set
     @abstractmethod
-    def SetProperties():
+    def SetParameters(self):
         pass
 
     # returns x,y,z coordinates for each t in t_array
@@ -35,7 +40,7 @@ class Segment(metaclass=ABCMeta):
     def GetOrientations(self,t_array=None):
         pass
 
-class LineSegment(Segment):
+class LineSegment(AbstractSegment):
     def __init__(self,
             segment_length=50):
         
@@ -57,7 +62,11 @@ class LineSegment(Segment):
 
         self._UpdateCalculatedProperties()
 
-    def SetProperties(self, segment_length):
+    @property
+    def parameter_count(self):
+        return 1
+
+    def SetParameters(self, segment_length):
         self._segment_length = new_value
 
         self._UpdateCalculatedProperties()
@@ -101,7 +110,18 @@ class LineSegment(Segment):
 
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 
-class CircleSegment(Segment):
+class ConstLineSegment(LineSegment):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args,**kwargs)
+
+    @property
+    def parameter_count(self):
+        return 0
+
+    def SetParameters(self):
+        pass
+
+class CircleSegment(AbstractSegment):
     def __init__(self, 
             segment_length=300, 
             bend_angle=0,
@@ -120,6 +140,10 @@ class CircleSegment(Segment):
     @property
     def segment_length(self):
         return self._segment_length
+    
+    @property
+    def parameter_count(self):
+        return 2
 
     @property
     def bend_angle(self):
@@ -143,7 +167,7 @@ class CircleSegment(Segment):
 
         self._UpdateCalculatedProperties()
 
-    def SetProperties(self, bend_angle = None, bend_direction = None):
+    def SetParameters(self, bend_angle = None, bend_direction = None):
         assert(0 <= bend_angle and bend_angle <= 2 * np.pi)
 
         if bend_angle is not None:
