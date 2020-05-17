@@ -5,8 +5,8 @@ import copy
 
 
 class Chain:
-    def __init__(self, 
-            segment_count = 5, 
+    def __init__(self,
+            segment_count = 5,
             segment_list = None,
             start_location = None,
             start_orientation = None):

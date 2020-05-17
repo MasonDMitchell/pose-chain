@@ -38,7 +38,7 @@ class Segment(metaclass=ABCMeta):
 class LineSegment(Segment):
     def __init__(self,
             segment_length=50):
-        
+
         super().__init__()
 
         self._segment_length = segment_length
@@ -102,8 +102,8 @@ class LineSegment(Segment):
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 
 class CircleSegment(Segment):
-    def __init__(self, 
-            segment_length=300, 
+    def __init__(self,
+            segment_length=300,
             bend_angle=0,
             bend_direction=0):
 
@@ -166,7 +166,7 @@ class CircleSegment(Segment):
     @property
     def radius(self):
         return self._radius
-    
+
     def _UpdateCalculatedProperties(self):
         self._UpdateRadius()
         self._UpdateFinalLocation()
