@@ -165,10 +165,13 @@ class CircleSegment(AbstractSegment):
 
     @bend_angle.setter
     def bend_angle(self, new_value):
-        assert(0 <= new_value and new_value <= 2 * np.pi)
+        assert(-2 * np.pi <= new_value and new_value <= 2 * np.pi)
 
-        self._bend_angle = new_value
+        if self._bend_angle * new_value < 0:
+            self._bend_direction += np.pi
 
+        self._bend_angle = abs(new_value)
+        
         self._UpdateCalculatedProperties()
 
     @bend_direction.setter
@@ -178,12 +181,23 @@ class CircleSegment(AbstractSegment):
         self._UpdateCalculatedProperties()
 
     def SetParameters(self, bend_angle = None, bend_direction = None):
-        assert(0 <= bend_angle and bend_angle <= 2 * np.pi)
+        assert(-2 * np.pi <= bend_angle and bend_angle <= 2 * np.pi)
+
+        if bend_direction is not None:
+            self._bend_direction = bend_direction
+            if bend_angle is not None:
+                if bend_angle < 0:
+                    self._bend_direction += np.pi
+            else:
+                if self._bend_angle < 0:
+                    self._bend_direction += np.pi
+        else:
+            if bend_angle is not None:
+                if self._bend_angle * bend_angle < 0:
+                    self._bend_direction += np.pi
 
         if bend_angle is not None:
             self._bend_angle = bend_angle
-        if bend_direction is not None:
-            self._bend_direction = bend_direction
 
         self._UpdateCalculatedProperties()
 

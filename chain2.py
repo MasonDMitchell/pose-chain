@@ -303,7 +303,7 @@ if __name__ == "__main__":
     segment_list = []
 
     segment_list.append(ConstLineSegment(2))
-    segment_list.append(CircleSegment(4,0.01,0.))
+    segment_list.append(CircleSegment(4,0.2,np.pi/2.))
 
     chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(5)]
 
@@ -311,14 +311,14 @@ if __name__ == "__main__":
     start_location = np.array([0,0,0])
 
     goal_points = np.array(
-            [[5,1,0],
-            [10,0,0],
-            [12,4,0],
-            [12,4,6],
-            [12,5,3]])
+            [[5,2,0],
+            [10,1,0],
+            [15,-1,0],
+            [20,0,1],
+            [25,0,4]])
 
-    bounds = Bounds(np.array([0,-np.inf] * 5),
-            np.array([2*np.pi,np.inf] * 5),
+    bounds = Bounds(np.array([-2*np.pi+0.01,-np.inf] * 5),
+            np.array([2*np.pi-0.01,np.inf] * 5),
             keep_feasible=True)
 
     chain = FittingChain(segment_list=chain_segments,
