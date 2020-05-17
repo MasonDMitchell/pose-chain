@@ -1,5 +1,5 @@
 from scipy.spatial.transform import Rotation as R
-from scipy.optimize import Bounds
+from scipy.optimize import Bounds,minimize
 import numpy as np
 from segment2 import AbstractSegment
 import copy
@@ -168,7 +168,7 @@ class CompositeSegment(AbstractSegment):
 
         return segment_t
 
-    def SetParameters(self,params):
+    def SetParameters(self,*params):
         total_param_count = 0
 
         for segment in self._segments:
@@ -177,9 +177,15 @@ class CompositeSegment(AbstractSegment):
             segment_params = params[total_param_count:total_param_count + param_count]
             total_param_count += param_count
 
-            segment.SetProperties(*segment_params)
+            segment.SetParameters(*segment_params)
         
         self._UpdateCalculatedProperties()
+
+    def GetParameters(self):
+        params = []
+        for segment in self._segments:
+            params += segment.GetParameters()
+        return params
 
     #Generic function for setting properties of any type of segment
     def SetSegmentProperties(idx,*args,**kwargs):
@@ -202,7 +208,9 @@ class FittingChain(AbstractSegment):
         self._chain = CompositeSegment(*args, **kwargs)
 
         if initial_parameters is None:
-            initial_parameters = np.array([0.] * self._chain.parameter_count)
+            initial_parameters = np.array(self._chain.GetParameters())
+
+        self._current_params = initial_parameters
 
         if bounds is None:
             bounds = Bounds(np.array([-np.inf] * self._chain.parameter_count),
@@ -223,7 +231,7 @@ class FittingChain(AbstractSegment):
 
     @property
     def parameter_count(self):
-        return 3 * (self._chain.segment_count + 1)
+        return 3 * self._chain.segment_count
 
     @property
     def final_location(self):
@@ -243,6 +251,9 @@ class FittingChain(AbstractSegment):
         points = np.array(points).reshape((-1,3))
         self.SetFittingPoints(points)
 
+    def GetParameters(self):
+        return list(self._points.flatten())
+
     def SetFittingPoints(self, points):
         
         testing_chain = copy.deepcopy(self._chain)
@@ -259,6 +270,7 @@ class FittingChain(AbstractSegment):
 
         self._current_params = res.x
         self._chain.SetParameters(*res.x)
+        self._points = points
 
     @staticmethod
     def _EvaluateChainParameters(composite_segment, error_func, parameters, goal_points):
@@ -267,7 +279,7 @@ class FittingChain(AbstractSegment):
         
         composite_segment.SetParameters(*parameters)
 
-        t_array = np.arange(start=0,stop=point_count + 1,step=1)
+        t_array = np.arange(start=1,stop=point_count + 1,step=1)
         chain_points = composite_segment.GetPoints(t_array)
 
         error = error_func(chain_points,goal_points)
@@ -279,7 +291,7 @@ class FittingChain(AbstractSegment):
         current = np.array(current)
         goal = np.array(goal)
 
-        difference_sq = np.pow(current - goal, 2)
+        difference_sq = np.power(current - goal, 2)
         all_sum = np.sum(difference_sq)
 
         return all_sum
@@ -287,10 +299,10 @@ class FittingChain(AbstractSegment):
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
-    from segment2 import LineSegment, CircleSegment
+    from segment2 import ConstLineSegment, CircleSegment
     segment_list = []
 
-    segment_list.append(LineSegment(2))
+    segment_list.append(ConstLineSegment(2))
     segment_list.append(CircleSegment(4,0.01,0.))
 
     chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(5)]
@@ -298,9 +310,22 @@ if __name__ == "__main__":
     start_orientation = R.from_rotvec([0,0.2,0])
     start_location = np.array([0,0,0])
 
+    goal_points = np.array(
+            [[5,1,0],
+            [10,0,0],
+            [12,4,0],
+            [12,4,6],
+            [12,5,3]])
+
+    bounds = Bounds(np.array([0,-np.inf] * 5),
+            np.array([2*np.pi,np.inf] * 5),
+            keep_feasible=True)
+
     chain = FittingChain(segment_list=chain_segments,
             start_orientation=start_orientation,
-            start_location=start_location)
+            start_location=start_location,
+            points=goal_points,
+            bounds=bounds)
 
     t_array = np.linspace(0,5,num=40)
 
@@ -322,6 +347,11 @@ if __name__ == "__main__":
             tangent_vecs[:,0],
             tangent_vecs[:,1],
             tangent_vecs[:,2])
+
+    ax.scatter(goal_points[:,0],
+            goal_points[:,1],
+            goal_points[:,2],
+            color='red')
 
     ax.set_xlim(0,30)
     ax.set_ylim(0,30)

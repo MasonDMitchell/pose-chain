@@ -28,6 +28,10 @@ class AbstractSegment(metaclass=ABCMeta):
     def SetParameters(self):
         pass
 
+    @abstractmethod
+    def GetParameters(self):
+        pass
+
     # returns x,y,z coordinates for each t in t_array
     # t varies from 0 to 1
     # t_array can contain a single element
@@ -70,6 +74,9 @@ class LineSegment(AbstractSegment):
         self._segment_length = new_value
 
         self._UpdateCalculatedProperties()
+
+    def GetParameters(self):
+        return [self._segment_length]
 
 # calculated properties and related functions
 
@@ -120,6 +127,9 @@ class ConstLineSegment(LineSegment):
 
     def SetParameters(self):
         pass
+
+    def GetParameters(self):
+        return []
 
 class CircleSegment(AbstractSegment):
     def __init__(self, 
@@ -177,6 +187,9 @@ class CircleSegment(AbstractSegment):
 
         self._UpdateCalculatedProperties()
 
+    def GetParameters(self):
+        return [self._bend_angle, self._bend_direction]
+
 # calculated properties and related functions
 
     @property
@@ -204,7 +217,7 @@ class CircleSegment(AbstractSegment):
 
     def _UpdateRadius(self):
         if math.isclose(self.bend_angle,0):
-            self._radius = np.inf
+            self._radius = 1e6
         else:
             self._radius = self.segment_length / self.bend_angle
 
