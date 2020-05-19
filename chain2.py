@@ -5,7 +5,7 @@ from segment2 import AbstractSegment
 import copy
 
 class CompositeSegment(AbstractSegment):
-    def __init__(self, 
+    def __init__(self,
             segment_list,
             start_location = None,
             start_orientation = None):
@@ -23,7 +23,7 @@ class CompositeSegment(AbstractSegment):
         self._start_orientation = start_orientation
 
         self._UpdateCalculatedProperties()
-    
+
         self._SetParamCount()
 
 # property getters and setters
@@ -178,7 +178,7 @@ class CompositeSegment(AbstractSegment):
             total_param_count += param_count
 
             segment.SetParameters(*segment_params)
-        
+
         self._UpdateCalculatedProperties()
 
     def GetParameters(self):
@@ -255,12 +255,12 @@ class FittingChain(AbstractSegment):
         return list(self._points.flatten())
 
     def SetFittingPoints(self, points):
-        
+
         testing_chain = copy.deepcopy(self._chain)
         def eval_foo(parameters):
-            return self._EvaluateChainParameters(testing_chain, 
-                    self._error_func, 
-                    parameters, 
+            return self._EvaluateChainParameters(testing_chain,
+                    self._error_func,
+                    parameters,
                     points)
 
         res = minimize(fun=eval_foo,
@@ -274,9 +274,9 @@ class FittingChain(AbstractSegment):
 
     @staticmethod
     def _EvaluateChainParameters(composite_segment, error_func, parameters, goal_points):
-        
+
         point_count = goal_points.shape[0]
-        
+
         composite_segment.SetParameters(*parameters)
 
         t_array = np.arange(start=1,stop=point_count + 1,step=1)

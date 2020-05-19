@@ -1,4 +1,3 @@
-
 from abc import ABCMeta, abstractmethod, abstractproperty
 from scipy.spatial.transform import Rotation as R
 import numpy as np
@@ -47,7 +46,7 @@ class AbstractSegment(metaclass=ABCMeta):
 class LineSegment(AbstractSegment):
     def __init__(self,
             segment_length=50):
-        
+
         super().__init__()
 
         self._segment_length = segment_length
@@ -132,8 +131,8 @@ class ConstLineSegment(LineSegment):
         return []
 
 class CircleSegment(AbstractSegment):
-    def __init__(self, 
-            segment_length=300, 
+    def __init__(self,
+            segment_length=300,
             bend_angle=0,
             bend_direction=0):
 
@@ -150,7 +149,7 @@ class CircleSegment(AbstractSegment):
     @property
     def segment_length(self):
         return self._segment_length
-    
+
     @property
     def parameter_count(self):
         return 2
@@ -171,7 +170,7 @@ class CircleSegment(AbstractSegment):
             self._bend_direction += np.pi
 
         self._bend_angle = abs(new_value)
-        
+
         self._UpdateCalculatedProperties()
 
     @bend_direction.setter
@@ -217,7 +216,7 @@ class CircleSegment(AbstractSegment):
     @property
     def radius(self):
         return self._radius
-    
+
     def _UpdateCalculatedProperties(self):
         self._UpdateRadius()
         self._UpdateFinalLocation()
