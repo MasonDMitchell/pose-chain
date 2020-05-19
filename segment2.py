@@ -1,10 +1,9 @@
-
 from abc import ABCMeta, abstractmethod, abstractproperty
 from scipy.spatial.transform import Rotation as R
 import numpy as np
 import math
 
-class Segment(metaclass=ABCMeta):
+class AbstractSegment(metaclass=ABCMeta):
     def __init__(self):
         pass
 
@@ -17,10 +16,19 @@ class Segment(metaclass=ABCMeta):
     def final_orientation(self):
         pass
 
+    # number of arguments in SetProperties
+    @abstractproperty
+    def parameter_count(self):
+        pass
+
     # every child class must provide a method which 
     # takes some subset of its properties to set
     @abstractmethod
-    def SetProperties():
+    def SetParameters(self):
+        pass
+
+    @abstractmethod
+    def GetParameters(self):
         pass
 
     # returns x,y,z coordinates for each t in t_array
@@ -35,7 +43,7 @@ class Segment(metaclass=ABCMeta):
     def GetOrientations(self,t_array=None):
         pass
 
-class LineSegment(Segment):
+class LineSegment(AbstractSegment):
     def __init__(self,
             segment_length=50):
 
@@ -57,10 +65,17 @@ class LineSegment(Segment):
 
         self._UpdateCalculatedProperties()
 
-    def SetProperties(self, segment_length):
+    @property
+    def parameter_count(self):
+        return 1
+
+    def SetParameters(self, segment_length):
         self._segment_length = new_value
 
         self._UpdateCalculatedProperties()
+
+    def GetParameters(self):
+        return [self._segment_length]
 
 # calculated properties and related functions
 
@@ -101,9 +116,7 @@ class LineSegment(Segment):
 
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 
-class CircleSegment(Segment):
-    def __init__(self,
-            segment_length=300,
+
             bend_angle=0,
             bend_direction=0):
 
@@ -122,6 +135,10 @@ class CircleSegment(Segment):
         return self._segment_length
 
     @property
+    def parameter_count(self):
+        return 2
+
+    @property
     def bend_angle(self):
         return self._bend_angle
 
@@ -131,9 +148,12 @@ class CircleSegment(Segment):
 
     @bend_angle.setter
     def bend_angle(self, new_value):
-        assert(0 <= new_value and new_value <= 2 * np.pi)
+        assert(-2 * np.pi <= new_value and new_value <= 2 * np.pi)
 
-        self._bend_angle = new_value
+        if self._bend_angle * new_value < 0:
+            self._bend_direction += np.pi
+
+        self._bend_angle = abs(new_value)
 
         self._UpdateCalculatedProperties()
 
@@ -143,15 +163,29 @@ class CircleSegment(Segment):
 
         self._UpdateCalculatedProperties()
 
-    def SetProperties(self, bend_angle = None, bend_direction = None):
-        assert(0 <= bend_angle and bend_angle <= 2 * np.pi)
+    def SetParameters(self, bend_angle = None, bend_direction = None):
+        assert(-2 * np.pi <= bend_angle and bend_angle <= 2 * np.pi)
+
+        if bend_direction is not None:
+            self._bend_direction = bend_direction
+            if bend_angle is not None:
+                if bend_angle < 0:
+                    self._bend_direction += np.pi
+            else:
+                if self._bend_angle < 0:
+                    self._bend_direction += np.pi
+        else:
+            if bend_angle is not None:
+                if self._bend_angle * bend_angle < 0:
+                    self._bend_direction += np.pi
 
         if bend_angle is not None:
             self._bend_angle = bend_angle
-        if bend_direction is not None:
-            self._bend_direction = bend_direction
 
         self._UpdateCalculatedProperties()
+
+    def GetParameters(self):
+        return [self._bend_angle, self._bend_direction]
 
 # calculated properties and related functions
 
@@ -180,7 +214,7 @@ class CircleSegment(Segment):
 
     def _UpdateRadius(self):
         if math.isclose(self.bend_angle,0):
-            self._radius = np.inf
+            self._radius = 1e6
         else:
             self._radius = self.segment_length / self.bend_angle
 
