@@ -11,6 +11,7 @@ class Graph:
         self.rotate = False
         self.show = False
         self.save = False
+        self.animate = True
         self.filename = "unnamed"
         self.dpi = 50
         self.collection = collection
@@ -18,7 +19,9 @@ class Graph:
 
         plt.style.use('ggplot')
 
-    def SetParameters(self,dpi = None, filename = None, show=None, save=None, rotate=None,lim = None):
+    def SetParameters(self,animate = None,dpi = None, filename = None, show=None, save=None, rotate=None,lim = None):
+        if animate is not None:
+            self.animate = animate
         if save is not None:
             self.save = save
         if show is not None:
@@ -58,7 +61,7 @@ class Graph:
         return self.line,
 
     def Plot(self):
-        if(self.show is True and self.save is not True):
+        if(self.show is True and self.save is not True and self.animate is not True):
             self.fig = plt.figure()
             self.ax = self.fig.add_subplot(111,projection='3d')
             self.ax.plot(self.all_points[0][:,0],self.all_points[0][:,1],self.all_points[0][:,2],color='black')
@@ -90,7 +93,7 @@ class Graph:
             if self.show is True and self.rotate is True:
                 blitting = False
 
-            anim = animation.FuncAnimation(self.fig, self._PlotAnimate, init_func=self._PlotInit, frames = len(self.all_points), interval=20, blit = blitting)
+            anim = animation.FuncAnimation(self.fig, self._PlotAnimate, init_func=self._PlotInit, frames = len(self.all_points), interval=500, blit = blitting)
 
             if self.show is True:
                 plt.show()
@@ -100,7 +103,7 @@ class Graph:
 
 if __name__ == "__main__":
     import pickle
-    all_points = pickle.load(open("data/test.p","rb"))
+    all_points = pickle.load(open("data/simPickle.p","rb"))
     plot = Graph(all_points)
-    plot.SetParameters(show=True,rotate=True,dpi=100)
+    plot.SetParameters(show=True,rotate=False,dpi=100,lim=[[0,500],[-250,250],[-250,250]])
     plot.Plot()

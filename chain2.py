@@ -4,7 +4,9 @@ import numpy as np
 from segment2 import AbstractSegment
 import copy
 
-
+class CompositeSegment(AbstractSegment):
+    def __init__(self,
+            segment_list,
             start_location = None,
             start_orientation = None):
 
@@ -147,7 +149,7 @@ import copy
 
         return orientations
 
-    # find the subset of t_array which is in the specified segment and 
+    # find the subset of t_array which is in the specified segment and
     # map those values to 0-1
     def _GetSegmentIndices(self, segment_idx, t_array):
 
@@ -357,4 +359,3 @@ if __name__ == "__main__":
 
     print(chain.GetPoints(np.array([5])))
     plt.show()
-

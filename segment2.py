@@ -116,7 +116,23 @@ class LineSegment(AbstractSegment):
 
         return R.from_rotvec([[0,0,0]] * t_array.shape[0])
 
+class ConstLineSegment(LineSegment):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args,**kwargs)
 
+    @property
+    def parameter_count(self):
+        return 0
+
+    def SetParameters(self):
+        pass
+
+    def GetParameters(self):
+        return []
+
+class CircleSegment(AbstractSegment):
+    def __init__(self,
+            segment_length=300,
             bend_angle=0,
             bend_direction=0):
 
