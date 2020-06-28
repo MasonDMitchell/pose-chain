@@ -15,7 +15,7 @@ class Filter:
         #Constants
         self.mag = np.array([0,0,-575.4])
         self.dim = np.array([6.35,6.35,6.35])
-        self.P = 10000
+        self.P = 100000
         self.loop_MAG = np.tile(self.mag,(N,1)) #Deprecated
         self.loop_DIM = np.tile(self.dim,(N,1)) #Deprecated
         self.MAG = np.array(np.tile(self.mag,(N**2*self.P,1)))
@@ -115,7 +115,17 @@ class Filter:
 
         print("Predict processing took: " + str(time.time()-x))
 
-    
+    def isclose(self,position):
+        error = np.reshape(np.concatenate(self.particles[:,3]),(self.P,self.N,3))
+        error = np.subtract(position,error)
+        error = np.linalg.norm(error,axis=2)
+        error = np.concatenate(error)
+        minimum = np.argpartition(error,1)[:1]
+        print(minimum)
+        print(error[minimum])
+        print(self.particles[minimum][0][3])
+        print(position)
+
     def update(self):
         
         x = time.time()
@@ -160,8 +170,9 @@ class Filter:
 
 
         biggest = np.argpartition(self.particles[:,6],-1)[-1:]
+        print(biggest)
         #print(self.particles[:,3][biggest])
-        print(self.Bv[biggest])
+        #print(self.Bv[biggest])
         #print(max(self.particles[:,6]))
         #print(self.Bv)
 
@@ -229,10 +240,9 @@ if __name__ == "__main__":
     sensor_data = sensor_data
     sensor_data = np.reshape(sensor_data,(timesteps,joints,3))
     new_sensor_data = []
-    pairs = 5
+    pairs = 1
     for i in range(len(sensor_data)):
         new_sensor_data.append(sensor_data[i][::2][0:pairs])
-    print(new_sensor_data[0:5])
     #print(new_sensor_data[timestep:(timestep+1)])
     sensor_pos = pos[::2][0:pairs]
     sensor_angle = angle[::2][0:pairs]
@@ -247,17 +257,17 @@ if __name__ == "__main__":
     x = Filter(pairs,sensor_pos,sensor_angle,sensor_axis,magnet_pos,magnet_angle,magnet_axis,new_sensor_data,timestep)
     x.create_particles()
     if loop==True:
-        for i in range(2):
-            x.timestep = i
-            for j in range(1):
-                x.compute()
-                x.reweigh()
-                x.predict()
-                x.resample()
-                x.update()
-                print()
+        for i in range(10):
             mag_ipos = df[['x','y','z']].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
             mag_angle = df['angle'].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
+            x.timestep = i
+            x.compute()
+            x.reweigh()
+            x.predict()
+            x.isclose(mag_ipos)
+            x.resample()
+            x.update()
+            #print()
             #print(x.particles[:,0])
             #print(x.pos)
             #print(mag_ipos)

@@ -10,7 +10,7 @@ mag = [0,0,-575.4]
 dim = [6.35,6.35,6.35]
 
 #File read for data handling
-data = pd.read_csv('data/rope_00001.csv')        
+data = pd.read_csv('data/shortrope_00001.csv')        
 print(data['joint_index'])
 #x = list(data['z'])
 #z = -1*np.array(list(data['x']))
