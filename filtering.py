@@ -95,8 +95,11 @@ class Filter:
 
     def reweigh(self):
         x = time.time() 
+
         error = np.subtract(self.sensor_data[self.timestep],self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
+        error = -(error*error)
+        error = np.exp(error)
         error = np.sum(error,axis=1)
         error = np.reshape(error,(self.P))
         
@@ -251,7 +254,7 @@ if __name__ == "__main__":
     x = Filter(pairs,sensor_pos,sensor_angle,sensor_axis,magnet_pos,magnet_angle,magnet_axis,new_sensor_data,timestep)
     x.create_particles()
     if loop==True:
-        for i in range(10):
+        for i in range(50):
             mag_ipos = df[['x','y','z']].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
             mag_angle = df['angle'].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
             x.timestep = i
@@ -262,7 +265,7 @@ if __name__ == "__main__":
             x.resample()
             x.update()
             #print()
-            #print(x.particles[:,0])
+            #print(x.particles[:,3])
             print(x.pos)
             print(mag_ipos)
             #test = np.subtract(mag_ipos,x.particles[:,3])
