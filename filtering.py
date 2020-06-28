@@ -24,9 +24,9 @@ class Filter:
         self.init_pos_noise = 0
         self.init_angle_noise = 0
         self.init_axis_noise = 0
-        self.pos_noise = 2
-        self.angle_noise = 3
-        self.axis_noise = 1
+        self.pos_noise = 3
+        self.angle_noise = 5
+        self.axis_noise = 2
         self.sampling_ratio = .4 #This is so we don't have to sample all particles
         self.segment_length = 5.315559
 
@@ -164,12 +164,11 @@ class Filter:
     def resample(self):
         percent = 10
         percent = int(self.P*(percent*.01))
-        
         all_indices = np.arange(0,self.P,1)
-        np.random.shuffle(all_indices)
-        to_delete = np.arange(0,percent,1)
-        to_duplicate = np.arange(percent,percent*2,1)
-        self.particles[all_indices[to_delete]] = self.particles[all_indices[to_duplicate]]
+        weights = np.array(self.particles[:,6],dtype='float')
+        all_indices = np.random.choice(all_indices,self.P,p=weights)
+        self.particles = self.particles[all_indices]
+
         
     def loop_compute(self):
         x = time.time()
