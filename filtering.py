@@ -15,7 +15,7 @@ class Filter:
         #Constants
         self.mag = np.array([0,0,-575.4])
         self.dim = np.array([6.35,6.35,6.35])
-        self.P = 100000
+        self.P = 10000
         self.loop_MAG = np.tile(self.mag,(N,1)) #Deprecated
         self.loop_DIM = np.tile(self.dim,(N,1)) #Deprecated
         self.MAG = np.array(np.tile(self.mag,(N**2*self.P,1)))
@@ -164,18 +164,13 @@ class Filter:
     def resample(self):
         percent = 10
         percent = int(self.P*(percent*.01))
-        min_index = np.argpartition(self.particles[:,6],percent)[:percent]
-        max_index = np.argpartition(self.particles[:,6],-percent)[-percent:]
-        self.particles[min_index] = self.particles[max_index]
-
-
-        biggest = np.argpartition(self.particles[:,6],-1)[-1:]
-        #print(biggest)
-        #print(self.particles[:,3][biggest])
-        #print(self.Bv[biggest])
-        #print(max(self.particles[:,6]))
-        #print(self.Bv)
-
+        
+        all_indices = np.arange(0,self.P,1)
+        np.random.shuffle(all_indices)
+        to_delete = np.arange(0,percent,1)
+        to_duplicate = np.arange(percent,percent*2,1)
+        self.particles[all_indices[to_delete]] = self.particles[all_indices[to_duplicate]]
+        
     def loop_compute(self):
         x = time.time()
         for j in range(self.P):
