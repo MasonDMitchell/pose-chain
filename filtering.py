@@ -24,9 +24,9 @@ class Filter:
         self.init_pos_noise = 0
         self.init_angle_noise = 0
         self.init_axis_noise = 0
-        self.pos_noise = .25
-        self.angle_noise = .25
-        self.axis_noise = .25
+        self.pos_noise = 2
+        self.angle_noise = 3
+        self.axis_noise = 1
         self.sampling_ratio = .4 #This is so we don't have to sample all particles
         self.segment_length = 5.315559
 
@@ -121,10 +121,10 @@ class Filter:
         error = np.linalg.norm(error,axis=2)
         error = np.concatenate(error)
         minimum = np.argpartition(error,1)[:1]
-        print(minimum)
-        print(error[minimum])
-        print(self.particles[minimum][0][3])
-        print(position)
+        #print(minimum)
+        #print(error[minimum])
+        #print(self.particles[minimum][0][3])
+        #print(position)
 
     def update(self):
         
@@ -162,7 +162,7 @@ class Filter:
         print("Update processing took: " + str(time.time()-x))
 
     def resample(self):
-        percent = 40
+        percent = 10
         percent = int(self.P*(percent*.01))
         min_index = np.argpartition(self.particles[:,6],percent)[:percent]
         max_index = np.argpartition(self.particles[:,6],-percent)[-percent:]
@@ -170,7 +170,7 @@ class Filter:
 
 
         biggest = np.argpartition(self.particles[:,6],-1)[-1:]
-        print(biggest)
+        #print(biggest)
         #print(self.particles[:,3][biggest])
         #print(self.Bv[biggest])
         #print(max(self.particles[:,6]))
@@ -269,11 +269,10 @@ if __name__ == "__main__":
             x.update()
             #print()
             #print(x.particles[:,0])
-            #print(x.pos)
-            #print(mag_ipos)
+            print(x.pos)
+            print(mag_ipos)
             #test = np.subtract(mag_ipos,x.particles[:,3])
             #print(x.angle)
-            #print(mag_angle)
     else:
         x.compute()
         x.reweigh()
