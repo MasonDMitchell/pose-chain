@@ -11,11 +11,16 @@ class Filter:
     def __init__(self,N,sensor_init_pos,sensor_init_angle,sensor_init_axis,magnet_init_pos,magnet_init_angle,magnet_init_axis,sensor_data,timestep):
 
         self.timestep = timestep
+        self.print_times = False
+
+        self.test_mag_pos = [0,0,0]
+        self.test_mag_angle = 0
+        self.test_mag_axis = [0,0,0]
 
         #Constants
         self.mag = np.array([0,0,-575.4])
         self.dim = np.array([6.35,6.35,6.35])
-        self.P = 10000
+        self.P = 1000
         self.loop_MAG = np.tile(self.mag,(N,1)) #Deprecated
         self.loop_DIM = np.tile(self.dim,(N,1)) #Deprecated
         self.MAG = np.array(np.tile(self.mag,(N**2*self.P,1)))
@@ -24,9 +29,9 @@ class Filter:
         self.init_pos_noise = 0
         self.init_angle_noise = 0
         self.init_axis_noise = 0
-        self.pos_noise = 3
-        self.angle_noise = 5
-        self.axis_noise = 2
+        self.pos_noise = .001
+        self.angle_noise = .005
+        self.axis_noise = .01
         self.sampling_ratio = .4 #This is so we don't have to sample all particles
         self.segment_length = 5.315559
 
@@ -43,6 +48,9 @@ class Filter:
     def compute(self): 
 
         y = time.time()
+        self.particles[0][3]= np.array([self.test_mag_pos])
+        #self.particles[0][4] = np.array(self.test_mag_angle) #ang
+        self.particles[0][5] = np.array([self.test_mag_axis]) #axis
 
         POSo = self.particles[:,0] #Sensor positions
         POSo = np.concatenate(POSo)
@@ -51,6 +59,7 @@ class Filter:
         POSm = self.particles[:,3] #Magnet positions
         POSm = np.repeat(POSm,self.N,0)
         POSm = np.concatenate(POSm)
+        print(POSm[0:100])
         
         ANG = self.particles[:,4] #Magnet angles
         ANG = np.repeat(ANG,self.N,0)
@@ -60,7 +69,6 @@ class Filter:
         AXIS = self.particles[:,5] #Magnet axis
         AXIS = np.repeat(AXIS,self.N,0)
         AXIS = np.concatenate(AXIS) 
-
         x = time.time()
         
         self.Bv = magpy.vector.getBv_magnet('box',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
@@ -82,20 +90,22 @@ class Filter:
         rotvecs = np.reshape(rotvecs,(self.N*self.P,3))
 
         r = R.from_rotvec(rotvecs)
+        
         self.Bv = r.apply(self.Bv,inverse=True)
         self.Bv = np.reshape(self.Bv,(self.P,self.N,3))
 
         y = time.time()-y
-
-        print("BV processing took: " + str(x))
-        print("Non-BV compute processing took: " + str(y-x))
-        print("Compute processing took: " + str(y))
-
+        if self.print_times == True:
+            print("BV processing took: " + str(x))
+            print("Non-BV compute processing took: " + str(y-x))
+            print("Compute processing took: " + str(y))
+        #print("BV:")
+        #print(self.Bv[0])
         return self.Bv
 
     def reweigh(self):
         x = time.time() 
-
+        #print(self.sensor_data[self.timestep])
         error = np.subtract(self.sensor_data[self.timestep],self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
         error = -(error*error)
@@ -105,7 +115,8 @@ class Filter:
         
         error = np.divide(error,np.sum(error))
         self.particles[:,6] = error
-        print("Reweigh processing took: " + str(time.time()-x))
+        if self.print_times == True:
+            print("Reweigh processing took: " + str(time.time()-x))
 
         return error
 
@@ -116,7 +127,10 @@ class Filter:
         self.angle = np.sum(np.multiply(self.particles[:,6],self.particles[:,4]))
         self.axis = np.sum(np.multiply(self.particles[:,6],self.particles[:,5]))
 
-        print("Predict processing took: " + str(time.time()-x))
+        self.data = np.sum(np.multiply(np.reshape(np.repeat(self.particles[:,6],3),(self.P,3)),np.reshape(self.Bv,(self.P,3))),axis=0)
+        
+        if self.print_times == True:
+            print("Predict processing took: " + str(time.time()-x))
 
     def isclose(self,position):
         error = np.reshape(np.concatenate(self.particles[:,3]),(self.P,self.N,3))
@@ -125,9 +139,16 @@ class Filter:
         error = np.concatenate(error)
         minimum = np.argpartition(error,1)[:1]
         #print(minimum)
+        test = np.argpartition(self.particles[:,6],-1)[-1:]
+        val = self.Bv[test]-self.sensor_data[self.timestep]
+        val = np.linalg.norm(val)
+        val1 = self.particles[test][0][3] - position
+        val1 = np.linalg.norm(val1)
         #print(error[minimum])
         #print(self.particles[minimum][0][3])
         #print(position)
+        
+        return val,val1
 
     def update(self):
         
@@ -161,8 +182,9 @@ class Filter:
         sensor_angle = np.delete(magnet_angle_noise,self.N-1,axis=1)
         sensor_angle = np.insert(sensor_angle,0,0,axis=1)
         self.particles[:,1] = list(sensor_angle)
-
-        print("Update processing took: " + str(time.time()-x))
+        
+        if self.print_times == True:
+            print("Update processing took: " + str(time.time()-x))
 
     def resample(self):
         percent = 10
@@ -170,19 +192,11 @@ class Filter:
         all_indices = np.arange(0,self.P,1)
         weights = np.array(self.particles[:,6],dtype='float')
         all_indices = np.random.choice(all_indices,self.P,p=weights)
+        #print(self.particles)
+        #print(self.Bv)
         self.particles = self.particles[all_indices]
-
-        
-    def loop_compute(self):
-        x = time.time()
-        for j in range(self.P):
-            for i in range(self.N):
-                POSo = np.tile(self.particles[:,0][j][i],(self.N,1))
-                POSm = self.particles[:,3][j]
-                ANG = self.particles[:,4][j]
-                AXIS = self.particles[:,5][j]
-                Bv = magpy.vector.getBv_magnet('box',self.loop_MAG,self.loop_DIM,POSo,POSm, ANG, AXIS,POSm)
-        print(time.time()-x)
+        #print("SPACE")
+        #print(self.particles)
 
     def create_particles(self):
         #Orientations assumed to not be different than standard
@@ -196,12 +210,12 @@ class Filter:
             gaussian_sensor_pos = self.sensor_init_pos + np.random.normal(0,self.init_pos_noise,(self.N,3))
             gaussian_sensor_angle = self.sensor_init_angle
             #gaussian_sensor_axis = self.sensor_init_axis + np.random.normal(0,self.init_axis_noise,(self.N,3))
-            gaussian_sensor_axis = np.array([[0,1,0]]*self.N)
+            gaussian_sensor_axis = np.array([[1,0,0]]*self.N)
 
             gaussian_magnet_pos = self.magnet_init_pos + np.random.normal(0,self.init_pos_noise,(self.N,3))
             #TODO fix gaussian angles
             gaussian_magnet_angle = self.magnet_init_angle
-            gaussian_magnet_axis = np.array([[0,1,0]]*self.N)
+            gaussian_magnet_axis = np.array([[1,0,0]]*self.N)
 
             sensor = [gaussian_sensor_pos,gaussian_sensor_angle,gaussian_sensor_axis] #pos, angle, axis
             magnet = [gaussian_magnet_pos,gaussian_magnet_angle,gaussian_magnet_axis] #pos, angle, axis
@@ -237,7 +251,7 @@ if __name__ == "__main__":
     sensor_data = sensor_data
     sensor_data = np.reshape(sensor_data,(timesteps,joints,3))
     new_sensor_data = []
-    pairs = 1
+    pairs = 2
     for i in range(len(sensor_data)):
         new_sensor_data.append(sensor_data[i][::2][0:pairs])
     #print(new_sensor_data[timestep:(timestep+1)])
@@ -253,21 +267,37 @@ if __name__ == "__main__":
 
     x = Filter(pairs,sensor_pos,sensor_angle,sensor_axis,magnet_pos,magnet_angle,magnet_axis,new_sensor_data,timestep)
     x.create_particles()
+    listy = []
+    listy2 = []
     if loop==True:
-        for i in range(50):
+        for i in range(70):
             mag_ipos = df[['x','y','z']].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
             mag_angle = df['angle'].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
+            mag_axis = df[['axis_x','axis_y','axis_z']].to_numpy()[joints*i:joints*(i+1)][1::2][0:1]
+            if np.array_equal(mag_axis[0],[0.,0.,0.]):
+                #print("HI")
+                x.test_mag_axis = [1,0,0]
+            else:
+                x.test_mag_axis = mag_axis[0]
+            x.test_mag_angle = mag_angle[0]
+            x.test_mag_pos = mag_ipos[0]
             x.timestep = i
             x.compute()
             x.reweigh()
             x.predict()
-            x.isclose(mag_ipos)
+            a,b = x.isclose(mag_ipos)
+            listy.append(a)
+            listy2.append(b)
             x.resample()
             x.update()
             #print()
             #print(x.particles[:,3])
-            print(x.pos)
-            print(mag_ipos)
+            #print(x.pos)
+            #print(mag_ipos)
+            #print(x.particles[0])
+            #print(mag_ipos)
+            #print(x.angle)
+            #print(mag_angle)
             #test = np.subtract(mag_ipos,x.particles[:,3])
             #print(x.angle)
     else:
@@ -276,3 +306,10 @@ if __name__ == "__main__":
         x.predict()
         x.resample()
         x.update()
+
+        print(self.sensor_data[self.timestep])
+        print(val)
+
+    df = pd.DataFrame(listy, columns=["sensor_error"])
+    df['magnet_error'] = listy2
+    df.to_csv('data/error.csv')

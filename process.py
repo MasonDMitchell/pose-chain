@@ -6,11 +6,11 @@ from magpylib.source.magnet import Box
 from magpylib import source, Collection
 
 #Magnetization and dimension of Box magnet used
-mag = [0,0,-575.4]
+mag = [-575.4,0,0]
 dim = [6.35,6.35,6.35]
 
 #File read for data handling
-data = pd.read_csv('data/shortrope_00001.csv')        
+data = pd.read_csv('data/rope_005.csv')        
 print(data['joint_index'])
 #x = list(data['z'])
 #z = -1*np.array(list(data['x']))
@@ -71,12 +71,12 @@ for j in range(len(timesteps)):
         sensor_readings.append(reading)
         sensor_readings.append(reading)
     
+    #print(i)
     #magpy.displaySystem(col,sensors=s)
 sensor_readings = np.array(sensor_readings)
 data['sensor_x'] = sensor_readings[:,0]
 data['sensor_y'] = sensor_readings[:,1]
 data['sensor_z'] = sensor_readings[:,2]
-
 #xynoise = np.random.normal(100,.233,(len(data['sensor_data']),2))
 #znoise = np.random.normal(100,.2,len(data['sensor_data']))
 

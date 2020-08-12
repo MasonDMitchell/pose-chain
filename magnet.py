@@ -44,6 +44,7 @@ class Magnet:
                 rotvec_orient = init_orient[i].as_rotvec()
                 if np.array_equal(init_orient[i].apply([1.,0.,0.]),[1.,0.,0.]) is False and np.sum(np.absolute(rotvec_orient)) is not 0:
                     self.sensors[len(self.sensors)-1].rotate(axis=rotvec_orient,angle=(np.linalg.norm(rotvec_orient)*180)/np.pi)
+                    f
 
             #Put magnet at end of chain
             if(isinstance(self.chain._segments[i],CircleSegment)):

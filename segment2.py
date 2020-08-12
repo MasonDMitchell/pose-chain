@@ -283,7 +283,7 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import Axes3D
 
     line = LineSegment(5)
-    arc = CircleSegment(10,1,0.5)
+    arc = CircleSegment(35,.001,1.5*np.pi)
 
     t_array = np.linspace(0,1,num=5)
     line_points = line.GetPoints(t_array)
