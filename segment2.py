@@ -361,6 +361,11 @@ class CircleSegment(AbstractSegment):
         horizontal_dist = self.radius - self.radius * np.cos(t_array * abs_angle)
         vertical_dist = self.radius * np.sin(t_array * abs_angle)
 
+        vertical_dist = np.where(
+            np.isclose(abs_angle, 0),
+            t_array * self._segment_length,
+            vertical_dist)
+
         adjusted_direction = np.expand_dims(
             self._AdjustedDirection(),
             axis=1)
@@ -406,7 +411,7 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import Axes3D
 
     line = LineSegment(20)
-    arc = CircleSegment(35,-1.6,1.5*np.pi)
+    arc = CircleSegment(35,0.00,1.5*np.pi)
 
     t_array = np.linspace(0,1,num=5)
     line_points = line.GetPoints(t_array)
