@@ -43,13 +43,23 @@ class AbstractSegment(metaclass=ABCMeta):
     def GetOrientations(self,t_array=None):
         pass
 
+    # returns the number of instances of the segment held by this object
+    def GetInstanceCount(self):
+        pass
+
 class LineSegment(AbstractSegment):
     def __init__(self,
-            segment_length=50):
+            segment_length=None):
 
         super().__init__()
 
+        if segment_length is None:
+            segment_length = np.array([50])
+
+        assert(len(segment_length.shape) == 1)
+
         self._segment_length = segment_length
+        self._instance_count = segment_length.shape[0]
 
         self._UpdateCalculatedProperties()
 
@@ -61,7 +71,10 @@ class LineSegment(AbstractSegment):
 
     @segment_length.setter
     def segment_length(self,new_value):
+        assert(len(new_value.shape) == 1)
+
         self._segment_length = new_value
+        self._instance_count = new_value.shape[0]
 
         self._UpdateCalculatedProperties()
 
@@ -70,12 +83,18 @@ class LineSegment(AbstractSegment):
         return 1
 
     def SetParameters(self, segment_length):
-        self._segment_length = new_value
+        assert(len(new_value.shape) == 1)
+
+        self._segment_length = segment_length
+        self._instance_count = segment_length.shape[1]
 
         self._UpdateCalculatedProperties()
 
     def GetParameters(self):
-        return [self._segment_length]
+        return np.array([self._segment_length])
+
+    def GetInstanceCount(self):
+        return self._instance_count
 
 # calculated properties and related functions
 
@@ -86,35 +105,48 @@ class LineSegment(AbstractSegment):
     # returns the final rotation vector of the segment
     @property
     def final_orientation(self):
-        return R.from_rotvec([0,0,0])
+        return R.from_rotvec([[0,0,0]]*self._instance_count)
 
     def _UpdateCalculatedProperties(self):
         self._UpdateFinalLocation()
 
     def _UpdateFinalLocation(self):
-        self._final_location = np.array([self._segment_length,0,0])
+        final_location = np.zeros((self._instance_count,3))
+        final_location[:,0] = self._segment_length
+
+        self._final_location = final_location
 
 # other functions
 
     def GetPoints(self,t_array=None):
         if t_array is None:
-            return np.array([]).reshape((0,3))
-        assert(len(t_array.shape) == 1)
+            return np.array([]).reshape((0,0,3))
+        if len(t_array.shape) == 1:
+            t_array = np.expand_dims(t_array,0)
+
+        assert(len(t_array.shape) == 2)
 
         # linear interpolation between 0,0,0 and end_point by t
-        end_point = np.array([self._segment_length,0,0])
-        point_array = end_point * np.expand_dims(t_array,1)
+        end_point = np.zeros((self._instance_count,3))
+        end_point[:,0] = self._segment_length
+
+        point_array = end_point * np.expand_dims(t_array,2)
 
         return point_array
 
     def GetOrientations(self, t_array = None):
         if t_array is None:
-            return R.from_rotvec(np.array([]).reshape((0,3)))
-        assert(len(t_array.shape) == 1)
-        if t_array.shape[0] == 0:
-            return R.from_rotvec(np.array([]).reshape((0,3)))
+            return R.from_rotvec(np.array([]).reshape((0,0,3)))
+        if len(t_array.shape) == 1:
+            t_array = np.expand_dims(t_array,0)
 
-        return R.from_rotvec([[0,0,0]] * t_array.shape[0])
+        assert(len(t_array.shape) == 2)
+
+        if t_array.shape[0] == 0 or t_array.shape[1] == 0:
+            return R.from_rotvec(np.array([]).reshape((0,0,3)))
+
+        result = np.zeros((t_array.shape[0],t_array.shape[1],3))
+        return R.from_rotvec(result)
 
 class ConstLineSegment(LineSegment):
     def __init__(self, *args, **kwargs):
@@ -128,19 +160,46 @@ class ConstLineSegment(LineSegment):
         pass
 
     def GetParameters(self):
-        return []
+        return np.array([]).reshape((0, self.GetInstanceCount()))
 
 class CircleSegment(AbstractSegment):
     def __init__(self,
-            segment_length=300,
-            bend_angle=0,
-            bend_direction=0):
+            segment_length=None,
+            bend_angle=None,
+            bend_direction=None):
 
         super().__init__()
+
+        instance_count = 1
+        if segment_length is not None:
+            assert(len(segment_length.shape) == 1)
+            instance_count = segment_length.shape[0]
+        elif bend_angle is not None:
+            assert(len(bend_angle.shape) == 1)
+            instance_count = bend_angle.shape[0]
+        elif bend_direction is not None:
+            assert(len(bend_direction.shape) == 1)
+            instance_count = bend_direction.shape[0]
+
+        if segment_length is None:
+            segment_length = np.array([300] * instance_count)
+        if bend_angle is None:
+            bend_angle = np.array([0] * instance_count)
+        if bend_direction is None:
+            bend_direction = np.array([0] * instance_count)
+        
+        assert(len(segment_length.shape) == 1)
+        assert(len(bend_angle.shape) == 1)
+        assert(len(bend_direction.shape) == 1)
+
+        assert(segment_length.shape == bend_angle.shape)
+        assert(bend_angle.shape == bend_direction.shape)
 
         self._segment_length = segment_length
         self._bend_angle = bend_angle
         self._bend_direction = bend_direction
+
+        self._instance_count = instance_count
 
         self._UpdateCalculatedProperties()
 
@@ -164,22 +223,39 @@ class CircleSegment(AbstractSegment):
 
     @bend_angle.setter
     def bend_angle(self, new_value):
-        assert(-2 * np.pi <= new_value and new_value <= 2 * np.pi)
+        assert(len(new_value.shape) == 1)
+        assert(new_value.shape[0] == self._instance_count)
+        assert(np.all(-2 * np.pi <= new_value) and np.all(new_value <= 2 * np.pi))
 
-        if self._bend_angle * new_value < 0:
-            self._bend_direction += np.pi
+        self._bend_direction = np.where(
+            self._bend_angle * new_value < 0,
+            self._bend_direction + np.pi,
+            self._bend_direction)    
 
-        self._bend_angle = abs(new_value)
+        self._bend_angle = np.abs(new_value)
 
         self._UpdateCalculatedProperties()
 
     @bend_direction.setter
     def bend_direction(self, new_value):
+        assert(len(new_value.shape) == 1)
+        assert(new_value.shape[0] == self._instance_count)
         self._bend_direction = new_value
 
         self._UpdateCalculatedProperties()
 
     def SetParameters(self, bend_angle = None, bend_direction = None):
+        
+        
+        instance_count = self._instance_count
+        if bend_angle is not None:
+            assert(len(bend_angle.shape) == 1)
+            instance_count = bend_angle.shape[0]
+        elif bend_direction is not None:
+            assert(len(bend_direction.shape) == 1)
+            instance_count = bend_direction.shape[0]
+        
+        assert(bend_angle.shape == bend_direction.shape)
         assert(-2 * np.pi <= bend_angle and bend_angle <= 2 * np.pi)
 
         if bend_direction is not None:
@@ -202,6 +278,9 @@ class CircleSegment(AbstractSegment):
 
     def GetParameters(self):
         return [self._bend_angle, self._bend_direction]
+
+    def GetInstanceCount(self):
+        return self._instance_count
 
 # calculated properties and related functions
 
