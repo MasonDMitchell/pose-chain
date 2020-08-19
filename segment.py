@@ -1,224 +1,501 @@
-import numpy as np
-import scipy as sci
+from abc import ABCMeta, abstractmethod, abstractproperty
 from scipy.spatial.transform import Rotation as R
+import numpy as np
 import math
-import magpylib as magpy
-from magpylib.source.magnet import Box
+from numbers import Number
 
-#Sensor standard deviation 2.576 +-500 G
-
-class Segment:
-
+class AbstractSegment(metaclass=ABCMeta):
     def __init__(self):
+        pass
 
-        #Length of each individual section
-        self.segment_length = 300
-        
-        #Zeroed position of sensor and magnet for internal use
-        self._sensor_pose = [0,0,0]
+    @abstractproperty
+    def final_location(self):
+        pass
 
-        self._magnet_pose = [self._sensor_pose[0],self._sensor_pose[1],self._sensor_pose[2]+self.segment_length]
+    # returns the final rotation vector of the segment
+    @abstractproperty
+    def final_orientation(self):
+        pass
 
-        #Used when changing pose from 0
-        self.pose_difference = [0,0,0]
-    
-        #Magnet and sensor pose used for all purposes outside the class
-        self.sensor_pose = self._sensor_pose
-        self.magnet_pose = self._magnet_pose
+    # number of arguments in SetProperties
+    @abstractproperty
+    def parameter_count(self):
+        pass
 
-        self.magnetization = [0,0,645.1]
+    # every child class must provide a method which 
+    # takes some subset of its properties to set
+    @abstractmethod
+    def SetParameters(self):
+        pass
 
-        self.magnet_dimension = [9.05,9.05,9.05]
+    @abstractmethod
+    def GetParameters(self):
+        pass
 
-        #Amount of bend from straight in radians
-        self.bend_angle = 0
-        #Direction of bend from +x in radians
-        self.bend_direction = 0
-        
-        #Initial and final rotational vector
-        self.init_rotvec = [0,0,1]
-        self.applied_rotvec = [0,0,1]
-        self.final_rotvec = [0,0,0]
-        self.prev_rotvec = [0,0,1]
+    # returns x,y,z coordinates for each t in t_array
+    # t varies from 0 to 1
+    # t_array can contain a single element
+    @abstractmethod
+    def GetPoints(self,t_array=None):
+        pass
 
-        self.circle_radius = -1
+    # returns a scipy rotation to describe all orientations in t_array
+    @abstractmethod
+    def GetOrientations(self,t_array=None):
+        pass
 
-        #magpy sensor and magnet initialization
-        self.sensor = magpy.Sensor(pos=self.sensor_pose)
-        self.magnet = Box(mag=self.magnetization,dim=self.magnet_dimension,pos=self.magnet_pose)
+    # returns the number of instances of the segment held by this object
+    def GetInstanceCount(self):
+        pass
 
-        self.rotate = False
+class LineSegment(AbstractSegment):
+    def __init__(self,
+            segment_length=None):
 
-        self.test = [1,0,0]
+        super().__init__()
 
-        return 
-
-    def update_pose(self,new_sensor_pose):
-        #Add zeroed sensor pose plus new pose to get total pose
-        self.sensor_pose = [a + b for a, b in zip(self._sensor_pose, new_sensor_pose)]
-        #Add total pose to magpy sensor
-        self.sensor.setPosition(self.sensor_pose)
-        
-        #Add zeroed magnet pose plus new pose to get total pose
-        self.magnet_pose = [a + b for a, b in zip(self._magnet_pose, new_sensor_pose)]
-        #Add total pose to magpy magnet
-        self.magnet.setPosition(self.magnet_pose)
-
-        #Update pose difference to new pose
-        self.pose_difference = new_sensor_pose
-
-        return
-
-    def find_rotvec(self,rotvec):
-        
-        #Determine if vector given is in same direction, or exact opposite direction of current init rotvec  
-        if(np.array_equal(np.around(self.init_rotvec,decimals=5),np.around(rotvec,decimals=5)) or np.array_equal(np.around(self.init_rotvec,decimals=5),-np.around(rotvec,decimals=5))):
-            if abs(self.init_rotvec[1]) < .00001 and abs(self.init_rotvec[2]) < .00001:
-                if self.init_rotvec[0] == 0:
-                    raise ValueError('zero vector')
-                else: 
-                    rotation_vector = np.cross(self.init_rotvec, [0,0,1])
-            rotation_vector = np.cross(self.init_rotvec, [1,0,0])
+        if segment_length is None:
+            segment_length = np.array([50])
         else:
-            rotation_vector = np.cross(self.init_rotvec,rotvec)
+            if isinstance(segment_length, Number):
+                segment_length = np.array([segment_length])
+            else:
+                segment_length = np.array(segment_length)
 
-        normalize = np.linalg.norm(rotation_vector)
+        assert(len(segment_length.shape) == 1)
 
-        if normalize == 0:
-            rotation_vector = [0,0,0]
-            return rotation_vector, normalize, 0
+        self._segment_length = segment_length
+        self._instance_count = segment_length.shape[0]
 
-        rotation_vector = rotation_vector / normalize
-       
-        angle = np.arccos(np.dot(self.init_rotvec,rotvec)/(np.linalg.norm(self.init_rotvec)*np.linalg.norm(rotvec))) 
-        sin = np.dot(np.cross(rotation_vector,self.init_rotvec),rotvec)/(np.linalg.norm(self.init_rotvec)*np.linalg.norm(rotvec))
+        self._UpdateCalculatedProperties()
 
-        if(sin < 0):
-            print("sin")
-            angle = 2*math.pi-angle
+# property getters and setters
 
-        rotation_vector = rotation_vector * angle
-        normalize = np.linalg.norm(rotation_vector)
+    @property
+    def segment_length(self):
+        return self._segment_length
 
-        if normalize == 0:
-            rotation_vector = [0,0,0]
-            return rotation_vector, normalize, 0
-
-        return rotation_vector, normalize, angle
-
-    def apply_rotvec(self,rotvec,prev_rotvec):
-
-        self.update_bend()
-
-        rotation_vector, normalize, angle = self.find_rotvec(rotvec)
-
-        self.prev_rotvec = prev_rotvec
-        self.applied_rotvec = rotvec
-
-        if normalize == 0:
-            self.update_pose(self.pose_difference)
-            return self.magnet_pose
- 
-        rotate = R.from_rotvec(rotation_vector)
-        self.test=rotation_vector        
-        #Rotate magnet pose, and final rotvec 
-        self._magnet_pose = rotate.apply(self._magnet_pose)
-
-        self.final_rotvec = rotate.apply(self.final_rotvec)
-
-        #Set rotvec to have length of 1
-        rotvec_normalize = np.linalg.norm(self.final_rotvec)
-        
-        self.final_rotvec = [a / rotvec_normalize for a in self.final_rotvec]
-
-        #Set rotvec to have length of 1
-        rotvec_normalize = np.linalg.norm(self.final_rotvec)
-        
-        self.final_rotvec = [a / rotvec_normalize for a in self.final_rotvec]
-
-        #Update magnet and sensor orientation and position
- 
-        if(False):
-            self.spin(np.pi)
+    @segment_length.setter
+    def segment_length(self,new_value):
+        if isinstance(new_value, Number):
+            new_value = np.array([new_value])
         else:
-            self.sensor.setOrientation(axis=rotation_vector,angle=(180*angle)/math.pi)
-            if(normalize > .00001):        
+            new_value = np.array(new_value)
 
-                self.magnet.rotate(axis=rotation_vector,angle=(180*angle)/math.pi,anchor=self._sensor_pose)
+        new_value = np.array(new_value)
+        assert(len(new_value.shape) == 1)
 
-        self.update_pose(self.pose_difference)        
+        self._segment_length = new_value
+        self._instance_count = new_value.shape[0]
 
-        return self.magnet_pose, self.final_rotvec,self.magnet,self.sensor
+        self._UpdateCalculatedProperties()
 
-    def spin(self,angle):
-        rotate = R.from_rotvec((self.applied_rotvec / np.linalg.norm(self.applied_rotvec)) * angle)
-        self._magnet_pose = rotate.apply(self._magnet_pose)
-        self.final_rotvec = rotate.apply(self.final_rotvec)
-        self.magnet.setPosition(np.array(self.magnet.position)-np.array(self.pose_difference))
-        self.magnet.rotate(axis=self.applied_rotvec,angle=(180*angle)/math.pi,anchor=self._sensor_pose)
-        self.magnet.setPosition(np.array(self.magnet.position)+np.array(self.pose_difference))
-        self.update_pose(self.pose_difference)        
-        return
+    @property
+    def parameter_count(self):
+        return 1
 
-    def update_bend(self):
+    def SetParameters(self, segment_length):
+        assert(len(new_value.shape) == 1)
+
+        self._segment_length = segment_length
+        self._instance_count = segment_length.shape[1]
+
+        self._UpdateCalculatedProperties()
+
+    def GetParameters(self):
+        return np.array([self._segment_length])
+
+    def GetInstanceCount(self):
+        return self._instance_count
+
+# calculated properties and related functions
+
+    @property
+    def final_location(self):
+        return self._final_location
+
+    # returns the final rotation vector of the segment
+    @property
+    def final_orientation(self):
+        return [R.from_rotvec([[0,0,0]]) 
+                for _ in range(self._instance_count)]
+
+    def _UpdateCalculatedProperties(self):
+        self._UpdateFinalLocation()
+
+    def _UpdateFinalLocation(self):
+        final_location = np.zeros((self._instance_count,3))
+        final_location[:,0] = self._segment_length
+
+        self._final_location = final_location
+
+# other functions
+
+    def GetPoints(self,t_array=None):
+        if t_array is None:
+            return np.array([]).reshape((0,0,3))
+        if len(t_array.shape) == 1:
+            t_array = np.expand_dims(t_array,0)
+
+        assert(len(t_array.shape) == 2)
+
+        # linear interpolation between 0,0,0 and end_point by t
+        end_point = np.zeros((self._instance_count,3))
+        end_point[:,0] = self._segment_length
+
+        point_array = np.expand_dims(end_point,1) * np.expand_dims(t_array,2)
+
+        return point_array
+
+    def GetOrientations(self, t_array = None):
+        if t_array is None:
+            return [R.from_rotvec(np.array([]).reshape((0,3))) 
+                    for _ in range(self._instance_count)]
+        if len(t_array.shape) == 1:
+            t_array = np.expand_dims(t_array,0)
+
+        assert(len(t_array.shape) == 2)
+
+        if t_array.shape[0] == 0 or t_array.shape[1] == 0:
+            return [R.from_rotvec(np.array([]).reshape((0,3))) 
+                    for _ in range(self._instance_count)]
+
+        rotvec = np.zeros((self._instance_count, t_array.shape[1],3))
         
-        #if radius is zero, bend is solved
-        if(self.bend_angle == 0):
-            self._magnet_pose = [self._sensor_pose[0],self._sensor_pose[1],self._sensor_pose[2]+self.segment_length]
-            self.update_pose(self.pose_difference)
-            self.final_rotvec = [0,0,1]
-            return self.magnet_pose,self.final_rotvec
+        return [R.from_rotvec(instance) for instance in rotvec]
 
-        self.circle_radius = self.segment_length/self.bend_angle
+class ConstLineSegment(LineSegment):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args,**kwargs)
 
-        #Assign x & z coordinates based on circle radius
-        self._magnet_pose[0] = np.cos(np.pi-self.bend_angle)*self.circle_radius + self.circle_radius
-        self._magnet_pose[2] = np.sin(np.pi-self.bend_angle)*self.circle_radius
+    @property
+    def parameter_count(self):
+        return 0
 
-        #Circle around z axis that intersects end point
-        second_circle_radius = self._magnet_pose[0]
+    def SetParameters(self):
+        pass
+
+    def GetParameters(self):
+        return np.array([]).reshape((0, self.GetInstanceCount()))
+
+# segment_length, bend_angle, and bend_direction can be either scalar or 
+# vector. Currently CircleSegment only supports fixed lengths after creation. 
+# This has other implications, for example, if the initial parameters are 
+# vector valued with multiple elements, then the number of instances held by 
+# the segment cannot be changed later. However if the initial number of 
+# instances is 0 then when the number of instances is changed later by 
+# setting the parameters, all instances are assumed to have the same length.
+class CircleSegment(AbstractSegment):
+    def __init__(self,
+            segment_length=None,
+            bend_angle=None,
+            bend_direction=None):
+
+        super().__init__()
+
+        instance_count = 1
+        if segment_length is not None:
+            if not isinstance(segment_length, Number):
+                segment_length = np.array(segment_length)
+                assert(len(segment_length.shape) == 1)
+                instance_count = segment_length.shape[0]
+
+        if bend_angle is not None:
+            if not isinstance(bend_angle, Number):
+                bend_angle = np.array(bend_angle)
+                assert(len(bend_angle.shape) == 1)
+                instance_count = bend_angle.shape[0]
+
+        if bend_direction is not None:
+            if not isinstance(bend_direction, Number):
+                bend_direction = np.array(bend_direction)
+                assert(len(bend_direction.shape) == 1)
+                instance_count = bend_direction.shape[0]
+
+        if isinstance(segment_length, Number):
+            segment_length = np.array([segment_length] * instance_count)
+        if isinstance(bend_angle, Number):
+            bend_angle = np.array([bend_angle] * instance_count)
+        if isinstance(bend_direction, Number):
+            bend_direction = np.array([bend_direction] * instance_count)
+
+        if segment_length is None:
+            segment_length = np.array([100] * instance_count)
+        if bend_angle is None:
+            bend_angle = np.array([0] * instance_count)
+        if bend_direction is None:
+            bend_direction = np.array([0] * instance_count)
         
-        #Change x & assign y based on direction of bend
-        self._magnet_pose[0] = self._magnet_pose[0] * np.cos(self.bend_direction)
-        self._magnet_pose[1] = np.sin(self.bend_direction)*second_circle_radius
+        assert(len(segment_length.shape) == 1)
+        assert(len(bend_angle.shape) == 1)
+        assert(len(bend_direction.shape) == 1)
 
-        self.update_pose(self.pose_difference)
+        assert(segment_length.shape == bend_angle.shape)
+        assert(bend_angle.shape == bend_direction.shape)
 
-        #vector        
-        self.final_rotvec = [np.cos(self.bend_direction)*np.sin(self.bend_angle),np.sin(self.bend_direction)*np.sin(self.bend_angle),np.cos(self.bend_angle)]
+        self._segment_length = segment_length
+        self._bend_angle = bend_angle
+        self._bend_direction = bend_direction
 
-        rotation_vector, normalize, angle = self.find_rotvec(self.final_rotvec)
+        if instance_count == 1:
+            self._instance_count_changeable = True
+        self._instance_count = instance_count
 
-        if(normalize > .00001):
-            self.magnet.setOrientation(angle = (180*angle)/math.pi,axis=rotation_vector)
-        rotvec_normalize = np.linalg.norm(self.final_rotvec)
+        self._UpdateCalculatedProperties()
 
-        self.final_rotvec = [a / rotvec_normalize for a in self.final_rotvec]
-  
-        return self.magnet_pose, self.final_rotvec, self.magnet, self.sensor
+# property getters and setters
 
-    def bend_line(self,rotvec):
-        x = self.bend_angle
-        y = self.segment_length
-        line_x = []
-        line_y = []
-        line_z = []
-        for i in np.arange(1,10,.3):
-            self.bend_angle = x/i
-            self.segment_length = y/i
-            self.apply_rotvec(rotvec,self.prev_rotvec)
+    @property
+    def segment_length(self):
+        return self._segment_length
 
-            line_x.append(self.magnet_pose[0])
-            line_y.append(self.magnet_pose[1])
-            line_z.append(self.magnet_pose[2])
+    @property
+    def parameter_count(self):
+        return 2
 
-        line_x.append(self.sensor_pose[0])
-        line_y.append(self.sensor_pose[1])
-        line_z.append(self.sensor_pose[2])
+    @property
+    def bend_angle(self):
+        return self._bend_angle
 
-        self.bend_angle = x
-        self.segment_length = y 
+    @property
+    def bend_direction(self):
+        return self._bend_direction
 
-        self.apply_rotvec(rotvec,self.prev_rotvec)
+    @bend_angle.setter
+    def bend_angle(self, new_value):
+        if isinstance(new_value, Number):
+            new_value = np.array([new_value])
+        else:
+            new_value = np.array(new_value)
 
-        return line_x, line_y, line_z
+        assert(len(new_value.shape) == 1)
+        assert(new_value.shape[0] == self._instance_count)
+        assert(np.all(-2 * np.pi <= new_value) and np.all(new_value <= 2 * np.pi))
+
+        #self._bend_direction = np.where(
+        #    self._bend_angle * new_value < 0,
+        #    self._bend_direction + np.pi,
+        #    self._bend_direction)    
+
+        self._bend_angle = new_value
+
+        self._UpdateCalculatedProperties()
+
+    @bend_direction.setter
+    def bend_direction(self, new_value):
+        if isinstance(new_value, Number):
+            new_value = np.array([new_value])
+        else:
+            new_value = np.array(new_value)
+
+        assert(len(new_value.shape) == 1)
+        assert(new_value.shape[0] == self._instance_count)
+        self._bend_direction = new_value
+
+        self._UpdateCalculatedProperties()
+
+    def SetParameters(self, bend_angle = None, bend_direction = None):
+        
+        instance_count = self._instance_count
+        if bend_angle is not None:
+            assert(len(bend_angle.shape) == 1)
+            instance_count = bend_angle.shape[0]
+        elif bend_direction is not None:
+            assert(len(bend_direction.shape) == 1)
+            instance_count = bend_direction.shape[0]
+
+        if not self._instance_count_changeable:
+            assert(instance_count == self._instance_count)
+        else:
+            self._segment_length = np.full(
+                    (self._instance_count),
+                    self._segment_length[0])
+        
+        assert(bend_angle.shape == bend_direction.shape)
+        assert(-2 * np.pi <= bend_angle and bend_angle <= 2 * np.pi)
+
+        if bend_direction is not None:
+            self._bend_direction = bend_direction
+
+        if bend_angle is not None:
+            self._bend_angle = bend_angle
+
+        self._UpdateCalculatedProperties()
+
+    def GetParameters(self):
+        return np.array([self._bend_angle, self._bend_direction])
+
+    def GetInstanceCount(self):
+        return self._instance_count
+
+# calculated properties and related functions
+
+    @property
+    def final_location(self):
+        return self._final_location
+
+    @property
+    def final_orientation(self):
+        return self._final_orientation
+
+    @property
+    def radius(self):
+        return self._radius
+
+    def _UpdateCalculatedProperties(self):
+        self._UpdateRadius()
+        self._UpdateFinalLocation()
+        self._UpdateFinalOrientation()
+
+    def _UpdateFinalLocation(self):
+        self._final_location = self.GetPoints(np.array([1]))[:,0,:]
+
+    def _UpdateFinalOrientation(self):
+        self._final_orientation = self.GetOrientations(np.array([1]))
+
+    def _UpdateRadius(self):
+        self._radius = np.where(
+            np.isclose(self.bend_angle,0),
+            1e6,
+            self._segment_length / np.abs(self.bend_angle))
+
+# other functions ig
+    def _AdjustedDirection(self):
+        adjusted_direction = np.where(
+                self.bend_angle < 0,
+                self._bend_direction + np.pi,
+                self._bend_direction)
+
+        return adjusted_direction
+
+    def GetPoints(self,t_array = None):
+        if t_array is None:
+            return np.array([]).reshape((0,0,3))
+        if len(t_array.shape) == 1:
+            t_array = np.expand_dims(t_array,0)
+        assert(len(t_array.shape) == 2)
+
+        abs_angle = np.expand_dims(np.abs(self.bend_angle),axis=1)
+        radius = np.expand_dims(self.radius,axis=1)
+        horizontal_dist = radius - radius * np.cos(t_array * abs_angle)
+        vertical_dist = radius * np.sin(t_array * abs_angle)
+
+        vertical_dist = np.where(
+            np.isclose(abs_angle, 0),
+            t_array * np.expand_dims(self._segment_length,axis=1),
+            vertical_dist)
+
+        adjusted_direction = np.expand_dims(
+            self._AdjustedDirection(),
+            axis=1)
+
+        points_y = np.cos(adjusted_direction) * horizontal_dist
+        points_z = np.sin(adjusted_direction) * horizontal_dist
+
+        points = np.stack([vertical_dist,points_y,points_z],axis=2)
+
+        return points
+
+    def GetOrientations(self, t_array = None):
+        if t_array is None:
+            return [R.from_rotvec(np.array([]).reshape((0,3))) 
+                    for _ in range(self._instance_count)]
+        if len(t_array.shape) == 1:
+            t_array = np.expand_dims(t_array,0)
+        assert(len(t_array.shape) == 2)
+        if t_array.shape[0] == 0 or t_array.shape[1] == 0:
+            return [R.from_rotvec(np.array([]).reshape((0,3))) 
+                    for _ in range(self._instance_count)]
+
+        abs_angle = np.expand_dims(np.abs(self.bend_angle),axis=1)
+        adjusted_direction = np.expand_dims(
+            self._AdjustedDirection(),
+            axis=1)
+
+        norm_y = -np.sin(adjusted_direction)
+        norm_z = np.cos(adjusted_direction)
+        length = t_array * abs_angle
+
+        vec_y = norm_y * length
+        vec_z = norm_z * length
+
+        rotvec = np.stack(
+            [np.zeros((self._instance_count,t_array.shape[1])), vec_y, vec_z],
+            axis=2)
+
+        orientations = [R.from_rotvec(instance) for instance in rotvec]
+
+        return orientations
+
+if __name__ == "__main__":
+    from matplotlib import pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+
+    line = LineSegment(np.array([20,30]))
+    arc = CircleSegment(35,
+            np.array([2,1,0.,-1]),
+            np.array([1.5*np.pi,0.,1.,0.]))
+
+    t_array = np.linspace(0,1,num=5)
+    line_points = line.GetPoints(t_array)
+    arc_points = arc.GetPoints(t_array)
+
+    line_orientations = line.GetOrientations(t_array)
+    arc_orientations = arc.GetOrientations(t_array)
+
+    line.GetOrientations()
+    arc.GetOrientations()
+
+    vec_lengths = 4
+    tangent = np.array([vec_lengths,0,0])
+    normal = np.array([0,vec_lengths,0])
+
+    tangent_vecs = [instance_arc.apply(tangent) for instance_arc in arc_orientations]
+    normal_vecs = [instance_arc.apply(normal) for instance_arc in arc_orientations]
+    #print("Printing Output")
+    #print(tangent_vecs)
+    #print(normal_vecs)
+
+    #print(line_points)
+    #print([x.as_euler('xyz') for x in line_orientations])
+    #print(arc_points)
+    #print([x.as_euler('xyz') for x in arc_orientations])
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    ax.plot(line_points[0,:,0],
+            line_points[0,:,1],
+            line_points[0,:,2],
+            color = 'red')
+
+    for idx in range(4):
+
+        ax.plot(arc_points[idx,:,0],
+                arc_points[idx,:,1],
+                arc_points[idx,:,2],
+                color = 'blue')
+
+        ax.quiver(arc_points[idx,:,0],
+                arc_points[idx,:,1],
+                arc_points[idx,:,2],
+                tangent_vecs[idx][:,0],
+                tangent_vecs[idx][:,1],
+                tangent_vecs[idx][:,2])
+
+        ax.quiver(arc_points[idx,:,0],
+                arc_points[idx,:,1],
+                arc_points[idx,:,2],
+                normal_vecs[idx][:,0],
+                normal_vecs[idx][:,1],
+                normal_vecs[idx][:,2])
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+
+    ax.set_xlim(-35,35)
+    ax.set_ylim(-35,35)
+    ax.set_zlim(-35,35)
+
+    plt.show()
