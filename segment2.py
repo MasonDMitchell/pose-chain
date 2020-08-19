@@ -117,7 +117,8 @@ class LineSegment(AbstractSegment):
     # returns the final rotation vector of the segment
     @property
     def final_orientation(self):
-        return R.from_rotvec([[0,0,0]]*self._instance_count)
+        return [R.from_rotvec([[0,0,0]]) 
+                for _ in range(self._instance_count)]
 
     def _UpdateCalculatedProperties(self):
         self._UpdateFinalLocation()
@@ -347,10 +348,10 @@ class CircleSegment(AbstractSegment):
         self._UpdateFinalOrientation()
 
     def _UpdateFinalLocation(self):
-        self._final_location = self.GetPoints(np.array([1]))[0]
+        self._final_location = self.GetPoints(np.array([1]))[:,0,:]
 
     def _UpdateFinalOrientation(self):
-        self._final_orientation = self.GetOrientations(np.array([1]))[0]
+        self._final_orientation = self.GetOrientations(np.array([1]))
 
     def _UpdateRadius(self):
         self._radius = np.where(

@@ -3,6 +3,7 @@ from scipy.optimize import Bounds,minimize
 import numpy as np
 from segment2 import AbstractSegment
 import copy
+import sys
 
 class CompositeSegment(AbstractSegment):
     def __init__(self,
@@ -79,7 +80,7 @@ class CompositeSegment(AbstractSegment):
 
         for segment_idx in range(self.segment_count):
             delta_location = np.array(
-                    [instance_orientation.apply(instance_location)
+                    [instance_orientation.apply(instance_location)[0]
                         for instance_orientation, instance_location
                         in zip(segment_orientations[segment_idx],
                             self._segments[segment_idx].final_location)])
@@ -94,7 +95,7 @@ class CompositeSegment(AbstractSegment):
         #        np.tile(
         #            self._start_orientation.as_rotvec(),
         #            (self._instance_count,1)))
-        return [self._start_orientation] * self._instance_count
+        return [R.from_rotvec([self._start_orientation.as_rotvec()])] * self._instance_count
 
         #segment orientations is segment x instance list of rotations
     def _UpdateSegmentOrientations(self):
@@ -123,7 +124,7 @@ class CompositeSegment(AbstractSegment):
             t_array = np.expand_dims(t_array,0)
         assert(len(t_array.shape) == 2)
 
-        point_list = [[]] * self._instance_count
+        point_list = [[] for _ in range(self._instance_count)]
 
         t_array = np.sort(t_array)
         for segment_idx in range(self.segment_count):
@@ -131,19 +132,18 @@ class CompositeSegment(AbstractSegment):
             start_position = self._segment_locations[segment_idx]
 
             segment_t = self._GetSegmentIndices(segment_idx,t_array)
-
             if segment_t.shape[0] == 0:
                 continue
 
             if hasattr(self._segments[segment_idx],"segment_count"):
                 segment_t *= self._segments[segment_idx].segment_count
-
             seg_points = self._segments[segment_idx].GetPoints(segment_t)
+
             seg_points = np.array(
                     [start_instance.apply(point_instance)
                     for start_instance, point_instance in 
                     zip(start_orientation, seg_points)])
-            seg_points += start_position
+            seg_points += np.expand_dims(start_position,1)
 
             for idx in range(self._instance_count):
                 point_list[idx] += list(seg_points[idx])
@@ -162,7 +162,7 @@ class CompositeSegment(AbstractSegment):
             return [R.from_rotvec(np.array([]).reshape((0,3))) 
                     for _ in range(self._instance_count)]
 
-        orientation_list = [[]] * self._instance_count
+        orientation_list = [[] for _ in range(self._instance_count)]
 
         t_array = np.sort(t_array)
         for segment_idx in range(self.segment_count):
@@ -248,17 +248,13 @@ if __name__ == "__main__":
     from segment2 import ConstLineSegment, CircleSegment
     segment_list = []
 
-    segment_list.append(ConstLineSegment(4))
-    segment_list.append(CircleSegment(4,1.5,np.pi/2.))
+    segment_list.append(ConstLineSegment(np.array([4,5,7,1])))
+    segment_list.append(CircleSegment(4,np.array([-0.25,0.5,2,0.25]),np.array([np.pi/2.,0.5,0,-1])))
 
     chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(5)]
 
     start_orientation = R.from_rotvec([0,0.2,0])
     start_location = np.array([0,0,0])
-
-    bounds = Bounds(np.array([-2*np.pi+0.01,-np.inf] * 5),
-            np.array([2*np.pi-0.01,np.inf] * 5),
-            keep_feasible=True)
 
     chain = Chain(
             segment_list = chain_segments,
@@ -276,27 +272,28 @@ if __name__ == "__main__":
 
     chain_points = chain.GetPoints(t_array)
 
-    print(chain_points)
+    print(chain_points.shape)
+
+    chain_orientations = chain.GetOrientations(t_array)
+    tangent = np.array([1,0,0])
+    tangent_vecs = np.array([instance_orientations.apply(tangent)
+            for instance_orientations in chain_orientations])
+    print(tangent_vecs.shape)
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    ax.plot(chain_points[0,:,0],
-            chain_points[0,:,1],
-            chain_points[0,:,2])
+    for idx in range(4):
+        ax.plot(chain_points[idx,:,0],
+                chain_points[idx,:,1],
+                chain_points[idx,:,2])
 
-    chain_orientations = chain.GetOrientations(t_array)
-    tangent = np.array([1,0,0])
-    tangent_vecs = [instance_orientations.apply(tangent)
-            for instance_orientations in chain_orientations]
-    print(tangent_vecs)
-
-    ax.quiver(chain_points[0,:,0],
-            chain_points[0,:,1],
-            chain_points[0,:,2],
-            tangent_vecs[0][:,0],
-            tangent_vecs[0][:,1],
-            tangent_vecs[0][:,2])
+        ax.quiver(chain_points[idx,:,0],
+                chain_points[idx,:,1],
+                chain_points[idx,:,2],
+                tangent_vecs[idx,:,0],
+                tangent_vecs[idx,:,1],
+                tangent_vecs[idx,:,2])
 
     ax.set_xlim(0,30)
     ax.set_ylim(0,30)
