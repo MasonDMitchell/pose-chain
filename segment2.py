@@ -175,6 +175,13 @@ class ConstLineSegment(LineSegment):
     def GetParameters(self):
         return np.array([]).reshape((0, self.GetInstanceCount()))
 
+# segment_length, bend_angle, and bend_direction can be either scalar or 
+# vector. Currently CircleSegment only supports fixed lengths after creation. 
+# This has other implications, for example, if the initial parameters are 
+# vector valued with multiple elements, then the number of instances held by 
+# the segment cannot be changed later. However if the initial number of 
+# instances is 0 then when the number of instances is changed later by 
+# setting the parameters, all instances are assumed to have the same length.
 class CircleSegment(AbstractSegment):
     def __init__(self,
             segment_length=None,
@@ -227,6 +234,8 @@ class CircleSegment(AbstractSegment):
         self._bend_angle = bend_angle
         self._bend_direction = bend_direction
 
+        if instance_count == 1:
+            self._instance_count_changeable = True
         self._instance_count = instance_count
 
         self._UpdateCalculatedProperties()
@@ -291,6 +300,13 @@ class CircleSegment(AbstractSegment):
         elif bend_direction is not None:
             assert(len(bend_direction.shape) == 1)
             instance_count = bend_direction.shape[0]
+
+        if not self._instance_count_changeable:
+            assert(instance_count == self._instance_count)
+        else:
+            self._segment_length = np.full(
+                    (self._instance_count),
+                    self._segment_length[0])
         
         assert(bend_angle.shape == bend_direction.shape)
         assert(-2 * np.pi <= bend_angle and bend_angle <= 2 * np.pi)
@@ -411,7 +427,7 @@ if __name__ == "__main__":
     from mpl_toolkits.mplot3d import Axes3D
 
     line = LineSegment(20)
-    arc = CircleSegment(35,0.00,1.5*np.pi)
+    arc = CircleSegment(35,2,1.5*np.pi)
 
     t_array = np.linspace(0,1,num=5)
     line_points = line.GetPoints(t_array)
