@@ -1,4 +1,5 @@
 import streamlit as st
+from scipy.fft import fft
 import serial
 import numpy as np
 from training import input_data
@@ -83,7 +84,7 @@ if start == True:
                 if isinstance(serial_zero_data[0],float):
                     good_data = True
 
-            serial_zero_data = np.array(serial_zero_data)/1000
+            serial_zero_data = np.array(serial_zero_data)/10000
         
             print(serial_zero_data)
 
@@ -125,7 +126,7 @@ if start == True:
             if len(serial_data) != 3:
                 serial_data = [0,0,0]
 
-            serial_data = np.array(serial_data)/1000
+            serial_data = np.array(serial_data)/10000
             if zero_data == True:
                 serial_data = np.subtract(serial_data,serial_zero_data)
 

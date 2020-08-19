@@ -21,8 +21,7 @@ Particles
 
 
 
-Input write function
-Input noise function
+Input noise & write function
 Add vectorized chain3
 Add bounding to chain3
 Update function
