@@ -1,12 +1,23 @@
-import magpylib as magpy
 import matplotlib.pyplot as plt
-from magpylib.source.magnet import Box
-import magpylib as magpy
-from magpylib.source.magnet import Box
-from magpylib import source, Collection
+from chain import CompositeSegment
+import numpy as np
+from segment import ConstLineSegment, CircleSegment
+from scipy.spatial.transform import Rotation as R
 
-s1 = Box(mag=[-575.4,0,-575.4],dim=[6.35,6.35,6.35],pos=[-.167778,26.459675,-82.575249],angle=91.48020981,axis=[.15262477,.97647626,.15231479])
+segment_list = []
 
-c = magpy.Collection(s1)
+segment_list.append(ConstLineSegment(np.array([1])))
+segment_list.append(CircleSegment(4,np.array([.25]),np.array([.25])))
 
-print(c.getB([0,0,0]))
+chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(1)]
+
+start_orientation = R.from_rotvec([0,0.2,0])
+start_location = np.array([0,0,0])
+
+chain = CompositeSegment(
+        segment_list = chain_segments,
+        start_orientation = start_orientation,
+        start_location = start_location)
+
+
+print(chain.GetParameters())

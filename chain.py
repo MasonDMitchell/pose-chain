@@ -245,13 +245,13 @@ Chain = CompositeSegment
 
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
-    from segment2 import ConstLineSegment, CircleSegment
+    from segment import ConstLineSegment, CircleSegment
     segment_list = []
 
     segment_list.append(ConstLineSegment(np.array([4,5,7,1])))
-    segment_list.append(CircleSegment(4,np.array([-0.25,0.5,2,0.25]),np.array([np.pi/2.,0.5,0,-1])))
+    segment_list.append(CircleSegment(4,np.array([-0.25,0.5,2,0.25]),np.array([0,0.5,0,-1])))
 
-    chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(5)]
+    chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(2)]
 
     start_orientation = R.from_rotvec([0,0.2,0])
     start_location = np.array([0,0,0])
@@ -295,9 +295,9 @@ if __name__ == "__main__":
                 tangent_vecs[idx,:,1],
                 tangent_vecs[idx,:,2])
 
-    ax.set_xlim(0,30)
-    ax.set_ylim(0,30)
-    ax.set_zlim(-30,0)
+    ax.set_xlim(0,10)
+    ax.set_ylim(0,10)
+    ax.set_zlim(-10,0)
 
     print(chain.GetPoints(np.array([5])))
     plt.show()
