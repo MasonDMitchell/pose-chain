@@ -4,23 +4,26 @@ import numpy as np
 from segment import ConstLineSegment, CircleSegment
 from scipy.spatial.transform import Rotation as R
 
-segment_list = []
+#P is # of particles
+#N is # of segments
+#alpha is bend angle
+#beta is bend direction
+#S is circle segment length
+#L is straight segment length
+def createChain(P,N,alpha,beta,S,L):
+    segments = []
 
-segment_list.append(ConstLineSegment(np.array([1])))
-segment_list.append(CircleSegment(4,np.array([.25]),np.array([.5])))
+    segments.append(ConstLineSegment(np.repeat(L,P)))
+    segments.append(CircleSegment(S,np.repeat(alpha,P),beta))
 
-chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(2)]
+    chain_segments = [CompositeSegment(segment_list=segments) for _ in range(N)]
 
-start_orientation = R.from_rotvec([0,0.2,0])
-start_location = np.array([0,0,0])
+    start_orientation = R.from_rotvec([0,0,0])
+    start_location = np.array([0,0,0])
 
-chain = CompositeSegment(
-        segment_list = chain_segments,
-        start_orientation = start_orientation,
-        start_location = start_location)
-
-
-print(chain.GetParameters())
-
-new_params = np.array([.25,.25])
-chain.SetParameters(new_params)
+    chain = CompositeSegment(
+            segment_list = chain_segments,
+            start_orientation = start_orientation,
+            start_location = start_location)
+    
+    return chain

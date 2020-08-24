@@ -176,6 +176,7 @@ class ConstLineSegment(LineSegment):
         pass
 
     def GetParameters(self):
+
         return np.array([]).reshape((0, self.GetInstanceCount()))
 
 # segment_length, bend_angle, and bend_direction can be either scalar or 
@@ -237,6 +238,7 @@ class CircleSegment(AbstractSegment):
         self._bend_angle = bend_angle
         self._bend_direction = bend_direction
 
+        self._instance_count_changeable=False
         if instance_count == 1:
             self._instance_count_changeable = True
         self._instance_count = instance_count
@@ -312,7 +314,7 @@ class CircleSegment(AbstractSegment):
                     self._segment_length[0])
         
         assert(bend_angle.shape == bend_direction.shape)
-        assert(-2 * np.pi <= bend_angle and bend_angle <= 2 * np.pi)
+        assert(-2 * np.pi <= np.all(bend_angle) and np.all(bend_angle) <= 2 * np.pi)
 
         if bend_direction is not None:
             self._bend_direction = bend_direction
