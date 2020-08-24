@@ -229,7 +229,7 @@ class CompositeSegment(AbstractSegment):
     def GetParameters(self):
         params = []
         for segment in self._segments:
-            params += segment.GetParameters()
+            params += list(segment.GetParameters())
         return np.array(params)
 
     #Generic function for setting properties of any type of segment

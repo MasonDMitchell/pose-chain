@@ -7,9 +7,9 @@ from scipy.spatial.transform import Rotation as R
 segment_list = []
 
 segment_list.append(ConstLineSegment(np.array([1])))
-segment_list.append(CircleSegment(4,np.array([.25]),np.array([.25])))
+segment_list.append(CircleSegment(4,np.array([.25]),np.array([.5])))
 
-chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(1)]
+chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(2)]
 
 start_orientation = R.from_rotvec([0,0.2,0])
 start_location = np.array([0,0,0])
@@ -21,3 +21,6 @@ chain = CompositeSegment(
 
 
 print(chain.GetParameters())
+
+new_params = np.array([.25,.25])
+chain.SetParameters(new_params)
