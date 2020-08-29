@@ -117,8 +117,7 @@ class LineSegment(AbstractSegment):
     # returns the final rotation vector of the segment
     @property
     def final_orientation(self):
-        return [R.from_rotvec([[0,0,0]]) 
-                for _ in range(self._instance_count)]
+        return R.identity(self._instance_count)
 
     def _UpdateCalculatedProperties(self):
         self._UpdateFinalLocation()
@@ -134,35 +133,25 @@ class LineSegment(AbstractSegment):
     def GetPoints(self,t_array=None):
         if t_array is None:
             return np.array([]).reshape((0,0,3))
-        if len(t_array.shape) == 1:
-            t_array = np.expand_dims(t_array,0)
-
-        assert(len(t_array.shape) == 2)
+        assert(len(t_array.shape) == 1)
+        t_array = np.expand_dims(t_array,1)
 
         # linear interpolation between 0,0,0 and end_point by t
         end_point = np.zeros((self._instance_count,3))
         end_point[:,0] = self._segment_length
 
-        point_array = np.expand_dims(end_point,1) * np.expand_dims(t_array,2)
+        point_array = np.expand_dims(end_point,0) * np.expand_dims(t_array,2)
 
         return point_array
 
     def GetOrientations(self, t_array = None):
         if t_array is None:
-            return [R.from_rotvec(np.array([]).reshape((0,3))) 
-                    for _ in range(self._instance_count)]
-        if len(t_array.shape) == 1:
-            t_array = np.expand_dims(t_array,0)
+            return []
+        assert(len(t_array.shape) == 1)
+        if t_array.shape[0] == 0:
+            return []
 
-        assert(len(t_array.shape) == 2)
-
-        if t_array.shape[0] == 0 or t_array.shape[1] == 0:
-            return [R.from_rotvec(np.array([]).reshape((0,3))) 
-                    for _ in range(self._instance_count)]
-
-        rotvec = np.zeros((self._instance_count, t_array.shape[1],3))
-        
-        return [R.from_rotvec(instance) for instance in rotvec]
+        return [R.identity(self._instance_count)] * t_array.shape[0]
 
 class ConstLineSegment(LineSegment):
     def __init__(self, *args, **kwargs):
@@ -176,7 +165,6 @@ class ConstLineSegment(LineSegment):
         pass
 
     def GetParameters(self):
-
         return np.array([]).reshape((0, self.GetInstanceCount()))
 
 # segment_length, bend_angle, and bend_direction can be either scalar or 
@@ -350,10 +338,10 @@ class CircleSegment(AbstractSegment):
         self._UpdateFinalOrientation()
 
     def _UpdateFinalLocation(self):
-        self._final_location = self.GetPoints(np.array([1]))[:,0,:]
+        self._final_location = self.GetPoints(np.array([1]))[0]
 
     def _UpdateFinalOrientation(self):
-        self._final_orientation = self.GetOrientations(np.array([1]))
+        self._final_orientation = self.GetOrientations(np.array([1]))[0]
 
     def _UpdateRadius(self):
         self._radius = np.where(
@@ -373,23 +361,22 @@ class CircleSegment(AbstractSegment):
     def GetPoints(self,t_array = None):
         if t_array is None:
             return np.array([]).reshape((0,0,3))
-        if len(t_array.shape) == 1:
-            t_array = np.expand_dims(t_array,0)
-        assert(len(t_array.shape) == 2)
+        assert(len(t_array.shape) == 1)
+        t_array = np.expand_dims(t_array,1)
 
-        abs_angle = np.expand_dims(np.abs(self.bend_angle),axis=1)
-        radius = np.expand_dims(self.radius,axis=1)
+        abs_angle = np.expand_dims(np.abs(self.bend_angle),axis=0)
+        radius = np.expand_dims(self.radius,axis=0)
         horizontal_dist = radius - radius * np.cos(t_array * abs_angle)
         vertical_dist = radius * np.sin(t_array * abs_angle)
 
         vertical_dist = np.where(
             np.isclose(abs_angle, 0),
-            t_array * np.expand_dims(self._segment_length,axis=1),
+            t_array * np.expand_dims(self._segment_length,axis=0),
             vertical_dist)
 
         adjusted_direction = np.expand_dims(
             self._AdjustedDirection(),
-            axis=1)
+            axis=0)
 
         points_y = np.cos(adjusted_direction) * horizontal_dist
         points_z = np.sin(adjusted_direction) * horizontal_dist
@@ -400,19 +387,16 @@ class CircleSegment(AbstractSegment):
 
     def GetOrientations(self, t_array = None):
         if t_array is None:
-            return [R.from_rotvec(np.array([]).reshape((0,3))) 
-                    for _ in range(self._instance_count)]
-        if len(t_array.shape) == 1:
-            t_array = np.expand_dims(t_array,0)
-        assert(len(t_array.shape) == 2)
-        if t_array.shape[0] == 0 or t_array.shape[1] == 0:
-            return [R.from_rotvec(np.array([]).reshape((0,3))) 
-                    for _ in range(self._instance_count)]
+            return []
+        assert(len(t_array.shape) == 1)
+        if t_array.shape[0] == 0:
+            return []
+        t_array = np.expand_dims(t_array,1)
 
-        abs_angle = np.expand_dims(np.abs(self.bend_angle),axis=1)
+        abs_angle = np.expand_dims(np.abs(self.bend_angle),axis=0)
         adjusted_direction = np.expand_dims(
             self._AdjustedDirection(),
-            axis=1)
+            axis=0)
 
         norm_y = -np.sin(adjusted_direction)
         norm_z = np.cos(adjusted_direction)
@@ -422,10 +406,10 @@ class CircleSegment(AbstractSegment):
         vec_z = norm_z * length
 
         rotvec = np.stack(
-            [np.zeros((self._instance_count,t_array.shape[1])), vec_y, vec_z],
+            [np.zeros((t_array.shape[0],self._instance_count)), vec_y, vec_z],
             axis=2)
 
-        orientations = [R.from_rotvec(instance) for instance in rotvec]
+        orientations = [R.from_rotvec(rotvec_t) for rotvec_t in rotvec]
 
         return orientations
 
@@ -452,8 +436,8 @@ if __name__ == "__main__":
     tangent = np.array([vec_lengths,0,0])
     normal = np.array([0,vec_lengths,0])
 
-    tangent_vecs = [instance_arc.apply(tangent) for instance_arc in arc_orientations]
-    normal_vecs = [instance_arc.apply(normal) for instance_arc in arc_orientations]
+    tangent_vecs = np.array([arc_t.apply(tangent) for arc_t in arc_orientations])
+    normal_vecs = np.array([arc_t.apply(normal) for arc_t in arc_orientations])
     #print("Printing Output")
     #print(tangent_vecs)
     #print(normal_vecs)
@@ -473,24 +457,24 @@ if __name__ == "__main__":
 
     for idx in range(4):
 
-        ax.plot(arc_points[idx,:,0],
-                arc_points[idx,:,1],
-                arc_points[idx,:,2],
+        ax.plot(arc_points[:,idx,0],
+                arc_points[:,idx,1],
+                arc_points[:,idx,2],
                 color = 'blue')
 
-        ax.quiver(arc_points[idx,:,0],
-                arc_points[idx,:,1],
-                arc_points[idx,:,2],
-                tangent_vecs[idx][:,0],
-                tangent_vecs[idx][:,1],
-                tangent_vecs[idx][:,2])
+        ax.quiver(arc_points[:,idx,0],
+                arc_points[:,idx,1],
+                arc_points[:,idx,2],
+                tangent_vecs[:,idx,0],
+                tangent_vecs[:,idx,1],
+                tangent_vecs[:,idx,2])
 
-        ax.quiver(arc_points[idx,:,0],
-                arc_points[idx,:,1],
-                arc_points[idx,:,2],
-                normal_vecs[idx][:,0],
-                normal_vecs[idx][:,1],
-                normal_vecs[idx][:,2])
+        ax.quiver(arc_points[:,idx,0],
+                arc_points[:,idx,1],
+                arc_points[:,idx,2],
+                normal_vecs[:,idx,0],
+                normal_vecs[:,idx,1],
+                normal_vecs[:,idx,2])
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
