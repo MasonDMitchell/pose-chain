@@ -36,12 +36,13 @@ class Filter:
         magnet_array = np.arange(1,self.N+1,1)
         sensor_array = np.arange(.5,self.N+.5,1)
 
-        POSm = self.chain.GetPoints(magnet_array)[:,0]
+        POSm = self.chain.GetPoints(magnet_array)[0,:]
         POSm = np.repeat(POSm,self.N,0)
         #POSm = np.concatenate(POSm)
         #POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
 
         SPINm = self.chain.GetOrientations(magnet_array)
+        SPINm = [R.from_quat(y) for y in zip(*(x.as_quat() for x in SPINm))]
         SPINm = np.reshape(SPINm,self.P)
         SPINm = list(map(self.angle_axis,SPINm))
         SPINm = np.array(SPINm)
@@ -56,7 +57,7 @@ class Filter:
         AXIS = np.concatenate(AXIS)
         AXIS = np.reshape(AXIS,(self.P*self.N*self.N,3))
 
-        POSo = self.chain.GetPoints(sensor_array)[:,0] #Sensor positions
+        POSo = self.chain.GetPoints(sensor_array)[0,:] #Sensor positions
         POSo = np.concatenate(POSo)
         POSo = np.repeat(POSo,self.N,0)
         POSo = np.reshape(POSo,(self.P*self.N*self.N,3))
@@ -68,6 +69,7 @@ class Filter:
         self.Bv = np.sum(self.Bv,1)
 
         SPINo = self.chain.GetOrientations(sensor_array)
+        SPINo = [R.from_quat(y) for y in zip(*(x.as_quat() for x in SPINo))]
         SPINo = np.reshape(SPINo,self.P)
         SPINo = np.array(list(map(self.angle_axis,SPINo)))
 
