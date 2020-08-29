@@ -158,7 +158,7 @@ if __name__ == "__main__":
     
     loop = True
 
-    chain = createChain(10,1,0,0,86.710381,10)
+    chain = createChain(100,1,0,0,86.710381,10)
 
     x = Filter(chain,noise)
 
