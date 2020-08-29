@@ -122,13 +122,9 @@ class Filter:
                 size=self.P,
                 p=self.weights)
 
-        #For loop in place due to generalizing # of params in filter
-        new_params = []
-        for i in range(len(self.params)):
-            new_params.append(self.params[i][index_array])
-        new_params = np.array(new_params)
+        self.params = self.params[:,index_array]
 
-        self.chain.SetParameters(*new_params)
+        self.chain.SetParameters(*self.params)
 
 
 if __name__ == "__main__":
