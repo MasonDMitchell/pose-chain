@@ -6,7 +6,7 @@ import time
 from scipy.spatial.transform import Rotation as R
 
 class Filter:
-    def __init__(self,chain):
+    def __init__(self,chain,noise):
 
         #Constants
         self.mag = np.array([-575.4,0,0])
@@ -15,44 +15,68 @@ class Filter:
         self.P = len(chain.GetParameters()[0])
         self.MAG = np.array(np.tile(self.mag,(self.N**2*self.P,1)))
         self.DIM = np.array(np.tile(self.dim,(self.N**2*self.P,1)))
-
+        self.chain = chain
+        self.noise = noise
         self.sensor_data = [0,0,0]
+        self.weights = []
+        self.params = self.chain.GetParameters()
+
+    def angle_axis(self,orientation):
+        rotvec = orientation.as_rotvec()
+        angle = np.linalg.norm(rotvec)
+        if angle == 0.0:
+            return np.array([[0.0],[1,0,0]],dtype='object')
+        axis = np.divide(rotvec,np.repeat(np.linalg.norm(rotvec),3))
+        angle = np.degrees(angle)
+
+        return np.array([[angle],axis],dtype='object')
 
     def compute_flux(self): 
 
-        POSm = self.particles[:,2] #Magnet positions
-        POSm = np.repeat(POSm,self.N,0)
-        POSm = np.concatenate(POSm)
-        POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
+        magnet_array = np.arange(1,self.N+1,1)
+        sensor_array = np.arange(.5,self.N+.5,1)
 
-        ANG = self.particles[:,3] #Magnet angles
+        POSm = self.chain.GetPoints(magnet_array)[:,0]
+        POSm = np.repeat(POSm,self.N,0)
+        #POSm = np.concatenate(POSm)
+        #POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
+
+        SPINm = self.chain.GetOrientations(magnet_array)
+        SPINm = np.reshape(SPINm,self.P)
+        SPINm = list(map(self.angle_axis,SPINm))
+        SPINm = np.array(SPINm)
+
+        ANG = SPINm[:,0] #Magnet angles
         ANG = np.repeat(ANG,(self.N),0)
         ANG = np.concatenate(ANG)
         ANG = ANG.astype("float64")
 
-        AXIS = self.particles[:,4] #Magnet axis
+        AXIS = SPINm[:,1] #Magnet axis
         AXIS = np.repeat(AXIS,self.N,0)
         AXIS = np.concatenate(AXIS)
         AXIS = np.reshape(AXIS,(self.P*self.N*self.N,3))
 
-        POSo = self.particles[:,5] #Sensor positions
+        POSo = self.chain.GetPoints(sensor_array)[:,0] #Sensor positions
         POSo = np.concatenate(POSo)
         POSo = np.repeat(POSo,self.N,0)
         POSo = np.reshape(POSo,(self.P*self.N*self.N,3))
         x = time.time()
         
         self.Bv = magpy.vector.getBv_magnet('box',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
-
-        
+ 
         self.Bv = np.reshape(self.Bv,(self.N*self.P,self.N,3))
         self.Bv = np.sum(self.Bv,1)
 
-        ANGo = np.concatenate(self.particles[:,6])
+        SPINo = self.chain.GetOrientations(sensor_array)
+        SPINo = np.reshape(SPINo,self.P)
+        SPINo = np.array(list(map(self.angle_axis,SPINo)))
+
+        ANGo = np.concatenate(SPINo[:,0])
         ANGo = np.radians(ANGo)
         ANGo = np.repeat(ANGo,3,0)
         ANGo = ANGo.flatten()
 
-        AXISo = self.particles[:,7]
+        AXISo = SPINo[:,1]
         AXISo = np.concatenate(AXISo)
         AXISo = AXISo.flatten()
 
@@ -64,7 +88,6 @@ class Filter:
         self.Bv = r.apply(self.Bv,inverse=True)
         self.Bv = np.reshape(self.Bv,(self.P,self.N,3))
 
-
         return self.Bv
 
     def reweigh(self):
@@ -72,36 +95,46 @@ class Filter:
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
         error = np.sum(error,axis=1)
-        error = error*500
+        error = error*100
         error = -(error*error)
         error = np.exp(error)
         #TODO If null replace with 0
         error = np.divide(error,np.sum(error))
-        self.particles[:,8] = error
+        self.weights = error
 
         return error
 
     def predict(self):
         #TODO mean of circular quantities for bend angle & direction
         #Predict from best particle, pose is probably the only useful one
-        print("predict") 
+        x=1
     def update(self):
 
-        #TODO Generate XY noise functions for bend angle and bend direction 
-       
-        print("update") 
+        self.params = self.noise(self.chain.GetParameters(),.1)
+        self.chain.SetParameters(*self.params)
 
     def resample(self):
-        #TODO choose indices, with their weight being the probability being chosen 
-        print("resample") 
+
+        #Choose particles to keep based on probability bag
+        index_array = np.arange(0,self.P,1)
+        index_array = np.random.choice(
+                a=index_array,
+                size=self.P,
+                p=self.weights)
+
+        #For loop in place due to generalizing # of params in filter
+        new_params = []
+        for i in range(len(self.params)):
+            new_params.append(self.params[i][index_array])
+        new_params = np.array(new_params)
+
+        self.chain.SetParameters(*new_params)
 
 
 if __name__ == "__main__":
     import pandas as pd
     from matplotlib import pyplot as plt
-    import pickle
-    import ast
-    from test import createChain
+    from tools import createChain,noise
 
     df = pd.read_csv("data/processed.csv")
 
@@ -129,18 +162,20 @@ if __name__ == "__main__":
     
     loop = True
 
-    chain = createChain(1000,1,0,0,10,80)
+    chain = createChain(10,1,0,0,86.710381,10)
 
-    x = Filter(chain)
+    x = Filter(chain,noise)
 
     if loop==True:
+        test = time.time()
         for i in range(timesteps):
+            x.sensor_data = new_sensor_data[i]
             x.compute_flux()
             x.reweigh()
-            x.predict()
+            #x.predict()
             x.resample()
             x.update()
-
+        print(timesteps/(time.time()-test))
     else:
         x.compute_flux()
         x.reweigh()
