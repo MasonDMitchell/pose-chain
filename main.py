@@ -8,6 +8,7 @@ import plotly.express as px
 import time
 import matplotlib.pyplot as plt
 from magpylib.source.magnet import Box
+from tools import createChain,noise
 import magpylib as magpy
 
 mode = st.selectbox("How do you want to run the filter?",['Training Mode','Live Mode'])
@@ -15,7 +16,6 @@ st.sidebar.markdown("# Filter Parameters#")
 if mode == 'Live Mode':
     N = st.sidebar.number_input("Number of Pairs",min_value=1,max_value=10,value=1)
 particles = st.sidebar.number_input("Number of Particles",min_value = 3,max_value=10000,value=1000)
-axis_noise = st.sidebar.number_input("Axis Noise",min_value=0.,max_value=1.,value=.1)
 segment_length = st.sidebar.number_input("Segment Length",min_value=1., max_value=300.,value=86.711098)
 sensor_segment_length = st.sidebar.number_input("Sensor Segment Length",min_value=1., max_value=300.,value=13.288902)
 if mode == 'Live Mode':
@@ -49,16 +49,10 @@ if mode == 'Live Mode':
     zero_data = st.checkbox("Zero Filter")
 
 start = st.button("Run Filter",key="Start Button")
-
+chain = createChain(particles,N,0,0,sensor_segment_length,segment_length)
 if start == True:
-    x = Filter(N,particles)
-
-    x.axis_noise = axis_noise
-    x.segment_length = segment_length
-    x.sensor_segment_length = sensor_segment_length
+    x = Filter(chain,noise)
  
-    x.create_particles(sensor_pos[0:N],sensor_angle[0:N],sensor_axis[0:N],magnet_pos[0:N],magnet_angle[0:N],magnet_axis[0:N])
-
     #Initialize screen
     iteration = st.text("Iteration")
     pos = st.text("")
@@ -131,16 +125,13 @@ if start == True:
 
             x.sensor_data = serial_data
 
-        x.compute_pose()
         x.compute_flux()
         x.reweigh()
         x.predict()
 
         x.resample()
         x.update()
-
-        pos.text(x.best_pos)
-    
+ 
         if graph_sensor == True:
             #Save best filter data
             best_data.append(x.sensor_data)

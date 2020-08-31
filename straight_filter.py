@@ -20,6 +20,8 @@ class Filter:
         self.sensor_data = [0,0,0]
         self.weights = []
         self.params = self.chain.GetParameters()
+        self.magnet_array = np.arange(1,self.N+1,1)
+        self.sensor_array = np.arange(.5,self.N+.5,1)
 
     def angle_axis(self,orientation):
         rotvec = orientation.as_rotvec()
@@ -29,35 +31,31 @@ class Filter:
         axis = np.divide(rotvec,np.repeat(np.linalg.norm(rotvec),3))
         angle = np.degrees(angle)
 
-        return np.array([[angle],axis],dtype='object')
+        return np.array([[angle],axis[0]],dtype='object')
 
     def compute_flux(self): 
 
-        magnet_array = np.arange(1,self.N+1,1)
-        sensor_array = np.arange(.5,self.N+.5,1)
 
-        POSm = self.chain.GetPoints(magnet_array)[0,:]
+        POSm = self.chain.GetPoints(self.magnet_array)[0,:]
         POSm = np.repeat(POSm,self.N,0)
-        #POSm = np.concatenate(POSm)
-        #POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
+        POSm = np.concatenate(POSm)
+        POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
 
-        SPINm = self.chain.GetOrientations(magnet_array)
+        SPINm = self.chain.GetOrientations(self.magnet_array)
         SPINm = [R.from_quat(y) for y in zip(*(x.as_quat() for x in SPINm))]
-        SPINm = np.reshape(SPINm,self.P)
         SPINm = list(map(self.angle_axis,SPINm))
         SPINm = np.array(SPINm)
 
         ANG = SPINm[:,0] #Magnet angles
         ANG = np.repeat(ANG,(self.N),0)
         ANG = np.concatenate(ANG)
-        ANG = ANG.astype("float64")
 
         AXIS = SPINm[:,1] #Magnet axis
         AXIS = np.repeat(AXIS,self.N,0)
         AXIS = np.concatenate(AXIS)
         AXIS = np.reshape(AXIS,(self.P*self.N*self.N,3))
 
-        POSo = self.chain.GetPoints(sensor_array)[0,:] #Sensor positions
+        POSo = self.chain.GetPoints(self.sensor_array)[0,:] #Sensor positions
         POSo = np.concatenate(POSo)
         POSo = np.repeat(POSo,self.N,0)
         POSo = np.reshape(POSo,(self.P*self.N*self.N,3))
@@ -68,9 +66,8 @@ class Filter:
         self.Bv = np.reshape(self.Bv,(self.N*self.P,self.N,3))
         self.Bv = np.sum(self.Bv,1)
 
-        SPINo = self.chain.GetOrientations(sensor_array)
+        SPINo = self.chain.GetOrientations(self.sensor_array)
         SPINo = [R.from_quat(y) for y in zip(*(x.as_quat() for x in SPINo))]
-        SPINo = np.reshape(SPINo,self.P)
         SPINo = np.array(list(map(self.angle_axis,SPINo)))
 
         ANGo = np.concatenate(SPINo[:,0])
@@ -97,7 +94,7 @@ class Filter:
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
         error = np.sum(error,axis=1)
-        error = error*100
+        error = error*1
         error = -(error*error)
         error = np.exp(error)
         #TODO If null replace with 0
