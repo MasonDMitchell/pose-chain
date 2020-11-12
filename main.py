@@ -58,9 +58,9 @@ if start == True:
     pos = st.text("")
     
 
-    ser = serial.Serial('/dev/ttyACM0')
-    time.sleep(2)
     if mode == "Live Mode":
+        ser = serial.Serial('/dev/ttyACM0')
+        time.sleep(2)
         if zero_data == True:
 
             good_data = False

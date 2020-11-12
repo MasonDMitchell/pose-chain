@@ -23,59 +23,65 @@ class Filter:
         self.magnet_array = np.arange(1,self.N+1,1)
         self.sensor_array = np.arange(.5,self.N+.5,1)
 
-    def angle_axis(self,orientation):
-        rotvec = orientation.as_rotvec()
-        angle = np.linalg.norm(rotvec)
-        if angle == 0.0:
-            return np.array([[0.0],[1,0,0]],dtype='object')
-        axis = np.divide(rotvec,np.repeat(np.linalg.norm(rotvec),3))
-        angle = np.degrees(angle)
+    def angle_axis2(self,orientation): 
+        rotvecs = []
+        for i in range(len(orientation)):
+            #Generate rotvecs and angles for rotation
+            rotvecs.append(orientation[i].as_rotvec())
 
-        return np.array([[angle],axis[0]],dtype='object')
+        rotvecs = np.array(rotvecs)
 
+        angles = np.linalg.norm(rotvecs,axis=2)
+        
+        #Get indices that need no rotation
+        zero = np.where(angles == 0.0)[0]
+        #Replace rotvecs that need no rotation
+        rotvecs[zero] = [1,0,0]
+        
+        #Ensure rotvecs have length 1
+        rotvecs = np.divide(rotvecs,np.reshape(np.repeat(np.linalg.norm(rotvecs,axis=2),3),(self.N,self.P,3)))
+        
+        #Change radians to degrees for processing
+        angles = np.degrees(angles)
+
+        return angles, rotvecs
+        
     def compute_flux(self): 
 
-
-        POSm = self.chain.GetPoints(self.magnet_array)[0,:]
-        POSm = np.repeat(POSm,self.N,0)
-        POSm = np.concatenate(POSm)
+        POSm = self.chain.GetPoints(self.magnet_array)
+        POSm = POSm.flatten()
+        POSm = np.tile(POSm,self.N)
         POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
 
         SPINm = self.chain.GetOrientations(self.magnet_array)
-        SPINm = [R.from_quat(y) for y in zip(*(x.as_quat() for x in SPINm))]
-        SPINm = list(map(self.angle_axis,SPINm))
-        SPINm = np.array(SPINm)
-
-        ANG = SPINm[:,0] #Magnet angles
+        ANG, AXIS = self.angle_axis2(SPINm)
+        
+        ANG = np.reshape(ANG,(self.P,self.N))
         ANG = np.repeat(ANG,(self.N),0)
         ANG = np.concatenate(ANG)
-
-        AXIS = SPINm[:,1] #Magnet axis
-        AXIS = np.repeat(AXIS,self.N,0)
-        AXIS = np.concatenate(AXIS)
+        
+        AXIS = AXIS.flatten()
+        AXIS = np.tile(AXIS,self.N)
         AXIS = np.reshape(AXIS,(self.P*self.N*self.N,3))
 
-        POSo = self.chain.GetPoints(self.sensor_array)[0,:] #Sensor positions
+        POSo = self.chain.GetPoints(self.sensor_array) #Sensor positions
         POSo = np.concatenate(POSo)
         POSo = np.repeat(POSo,self.N,0)
         POSo = np.reshape(POSo,(self.P*self.N*self.N,3))
         x = time.time()
         
         self.Bv = magpy.vector.getBv_magnet('box',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
- 
+
         self.Bv = np.reshape(self.Bv,(self.N*self.P,self.N,3))
         self.Bv = np.sum(self.Bv,1)
 
         SPINo = self.chain.GetOrientations(self.sensor_array)
-        SPINo = [R.from_quat(y) for y in zip(*(x.as_quat() for x in SPINo))]
-        SPINo = np.array(list(map(self.angle_axis,SPINo)))
-
-        ANGo = np.concatenate(SPINo[:,0])
+        ANGo, AXISo = self.angle_axis2(SPINo)
+        
         ANGo = np.radians(ANGo)
         ANGo = np.repeat(ANGo,3,0)
         ANGo = ANGo.flatten()
 
-        AXISo = SPINo[:,1]
         AXISo = np.concatenate(AXISo)
         AXISo = AXISo.flatten()
 
@@ -83,7 +89,7 @@ class Filter:
         rotvecs = np.reshape(rotvecs,(self.N*self.P,3))
 
         r = R.from_rotvec(rotvecs)
-        
+ 
         self.Bv = r.apply(self.Bv,inverse=True)
         self.Bv = np.reshape(self.Bv,(self.P,self.N,3))
 
@@ -97,6 +103,7 @@ class Filter:
         error = error*1
         error = -(error*error)
         error = np.exp(error)
+         
         #TODO If null replace with 0
         error = np.divide(error,np.sum(error))
         self.weights = error
@@ -106,10 +113,45 @@ class Filter:
     def predict(self):
         #TODO mean of circular quantities for bend angle & direction
         #Predict from best particle, pose is probably the only useful one
-        x=1
+        points = self.chain.GetPoints(self.magnet_array)[0]
+        index = np.argmax(self.weights)
+
+        percentage = self.P//10
+        largest_val = np.argpartition(self.weights,-percentage)
+        
+        total_weights_bounded = np.divide(self.weights[largest_val[-percentage:]],np.sum(self.weights[largest_val[-percentage:]]))
+        
+        test = points[largest_val[-percentage:]] * np.reshape(np.repeat(total_weights_bounded,3),(percentage,3))
+        test = np.sum(test,axis=0)
+
+        #return test
+        return points[index]
+
+    def closest_point(self,pos):
+        points = self.chain.GetPoints(self.magnet_array)[0]
+        error = np.subtract(points,pos)
+        error = np.linalg.norm(error,axis=1)
+        index = np.argmin(error)
+
+        print(points[index])
+        return
+
     def update(self):
 
-        self.params = self.noise(self.chain.GetParameters(),.1)
+        self.params = self.noise(self.chain.GetParameters(),.005)
+        print(self.params)
+
+        self.chain.SetParameters(*self.params)
+
+    def update2(self):
+        self.params = self.chain.GetParameters()
+        noise_alpha = np.random.normal(0,.1,self.P)
+        new_param_alpha = self.params[0] + noise_alpha
+
+        noise_beta = np.random.normal(0,.1,self.P)
+        new_param_beta = self.params[1] + noise_beta
+
+        self.params = np.array([new_param_alpha,new_param_beta])
         self.chain.SetParameters(*self.params)
 
     def resample(self):
@@ -120,17 +162,57 @@ class Filter:
                 a=index_array,
                 size=self.P,
                 p=self.weights)
-
+        
         self.params = self.params[:,index_array]
 
         self.chain.SetParameters(*self.params)
 
+        ''' 
+        percentage = self.P//2
+        smallest_val = np.argpartition(self.weights,percentage)
+
+        largest_val = np.argpartition(self.weights,-percentage)
+        self.params[0][smallest_val[:percentage]] = self.params[0][largest_val[-percentage:]] 
+        self.params[1][smallest_val[:percentage]] = self.params[1][largest_val[-percentage:]] 
+        self.weights[smallest_val[:percentage]] = self.weights[largest_val[-percentage:]] 
+        
+        '''
 
 if __name__ == "__main__":
     import pandas as pd
     from matplotlib import pyplot as plt
-    from tools import createChain,noise
+    from tools import createChain,spiral_test,noise,noise_rejection
+    
+    #Spiral for testing
+    flux, sensor_pos, magnet_pos = spiral_test(segments=1,
+                                               bend_angle=0,
+                                               bend_direction=0,
+                                               bend_length=30,
+                                               straight_length=0)
 
+    chain = createChain(particles=1000,
+                        segments=1,
+                        bend_angle=0,
+                        bend_direction=0,
+                        bend_length=30,
+                        straight_length=0)
+    x = Filter(chain,noise)
+
+    difference = []
+
+    test = time.time()
+    for i in range(len(flux)):
+        x.sensor_data = flux[i]
+        x.compute_flux()
+        x.reweigh()
+        x.resample()
+        print(x.predict())
+        print(magnet_pos[i])
+        x.update()
+    
+    print(len(flux)/(time.time()-test))
+
+'''
     df = pd.read_csv("data/processed.csv")
 
     joints = max(df['joint_index'])+1
@@ -138,8 +220,6 @@ if __name__ == "__main__":
     timestep = 0
     timesteps = len(set(df['time']))
     pos = df[['x','y','z']].to_numpy()[joints*timestep:joints*(timestep+1)]
-    angle = df['angle'].to_numpy()[joints*timestep:joints*(timestep+1)]
-    axis = df[['axis_x','axis_y','axis_z']].to_numpy()[joints*timestep:joints*(timestep+1)]
     
     sensor_data = df[['sensor_x','sensor_y','sensor_z']].to_numpy()
     sensor_data = np.reshape(sensor_data,(timesteps,joints,3))
@@ -147,34 +227,10 @@ if __name__ == "__main__":
     pairs = 1
     for i in range(len(sensor_data)):
         new_sensor_data.append(sensor_data[i][::2][0:pairs])
+
+    pos = df[['x','y','z']].to_numpy()
     sensor_pos = pos[::2][0:pairs]
-    sensor_angle = angle[::2][0:pairs]
-    sensor_axis = axis[::2][0:pairs]
     
-    magnet_pos = pos[1::2][0:pairs]
-    magnet_angle = angle[1::2][0:pairs]
-    magnet_axis = axis[1::2][0:pairs]
-    
-    loop = True
-
-    chain = createChain(100,1,0,0,86.710381,10)
-
-    x = Filter(chain,noise)
-
-    if loop==True:
-        test = time.time()
-        for i in range(timesteps):
-            x.sensor_data = new_sensor_data[i]
-            x.compute_flux()
-            x.reweigh()
-            #x.predict()
-            x.resample()
-            x.update()
-        print(timesteps/(time.time()-test))
-    else:
-        x.compute_flux()
-        x.reweigh()
-        x.resample()
-        x.update()
-
-    
+    magnet_pos = pos[1::2]
+   
+'''
