@@ -72,8 +72,17 @@ class Filter:
         
         self.Bv = magpy.vector.getBv_magnet('box',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
 
-        self.Bv = np.reshape(self.Bv,(self.N*self.P,self.N,3))
+        # FIRST # OF SENSORS
+        # MIDDLE # OF MAGNETS
+        #LAST # OF PARTICLE
+        #print("----------------------")
+        #print(self.Bv)
+        self.Bv = np.reshape(self.Bv,(self.N,self.N,self.P,3))
+        #print(self.Bv)
         self.Bv = np.sum(self.Bv,1)
+        #print(self.Bv)
+        self.Bv = np.reshape(self.Bv,(self.N*self.P,3))
+        #print(self.Bv)
 
         SPINo = self.chain.GetOrientations(self.sensor_array)
         ANGo, AXISo = self.angle_axis2(SPINo)
@@ -91,22 +100,31 @@ class Filter:
         r = R.from_rotvec(rotvecs)
  
         self.Bv = r.apply(self.Bv,inverse=True)
-        self.Bv = np.reshape(self.Bv,(self.P,self.N,3))
-
+        self.Bv = np.reshape(self.Bv,(self.N,self.P,3))
+        self.Bv = np.swapaxes(self.Bv,0,1)
+         
+        #print("Sensor Data: {}".format(np.squeeze(self.sensor_data)))
+        #print("Bv Data: {}".format(np.squeeze(self.Bv)))
         return self.Bv
 
     def reweigh(self):
         #TODO Refactor for multiple segments for things in the same chain
+        #print(self.sensor_data)
+        #print(self.Bv)
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
         error = np.sum(error,axis=1)
-        error = error*1
+        #print(error)
+        error = error*10
         error = -(error*error)
+        #print(error)
         error = np.exp(error)
+        #print(error)
          
         #TODO If null replace with 0
         error = np.divide(error,np.sum(error))
         self.weights = error
+        #print("Weights:",self.weights)
 
         return error
 
@@ -138,9 +156,7 @@ class Filter:
 
     def update(self):
 
-        self.params = self.noise(self.chain.GetParameters(),.005)
-        print(self.params)
-
+        self.params = self.noise(self.chain.GetParameters(),.001)
         self.chain.SetParameters(*self.params)
 
     def update2(self):
@@ -182,20 +198,34 @@ if __name__ == "__main__":
     import pandas as pd
     from matplotlib import pyplot as plt
     from tools import createChain,spiral_test,noise,noise_rejection
+    import sys, os
+
+   # Disable
+    def blockPrint():
+        sys.stdout = open(os.devnull, 'w')
+
+    # Restore
+    def enablePrint():
+        sys.stdout = sys.__stdout__
     
     #Spiral for testing
-    flux, sensor_pos, magnet_pos = spiral_test(segments=1,
+    blockPrint()
+    flux, sensor_pos, magnet_pos = spiral_test(segments=2,
                                                bend_angle=0,
                                                bend_direction=0,
                                                bend_length=30,
-                                               straight_length=0)
+                                               straight_length=10)
 
-    chain = createChain(particles=1000,
-                        segments=1,
+    print()
+    print("END OF SPIRAL")
+    print()
+    enablePrint()
+    chain = createChain(particles=10000,
+                        segments=2,
                         bend_angle=0,
                         bend_direction=0,
                         bend_length=30,
-                        straight_length=0)
+                        straight_length=10)
     x = Filter(chain,noise)
 
     difference = []
@@ -206,11 +236,12 @@ if __name__ == "__main__":
         x.compute_flux()
         x.reweigh()
         x.resample()
-        print(x.predict())
+        print(x.chain.GetPoints(x.magnet_array)[:10])
+        #print(x.predict())
         print(magnet_pos[i])
         x.update()
     
-    print(len(flux)/(time.time()-test))
+    #print(len(flux)/(time.time()-test))
 
 '''
     df = pd.read_csv("data/processed.csv")

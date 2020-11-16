@@ -45,7 +45,8 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
     N=segments
  
     #Create spiral
-    t = np.arange(0,10*np.pi,.1)
+    #10*pi
+    t = np.arange(0,10,.1)
     x = (a + b*t) * np.cos(t)
     y = (a + b*t) * np.sin(t)
  
@@ -56,9 +57,8 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
 
     #Create chain and filter with params
     chain = createChain(1,segments,bend_angle,bend_direction,bend_length,straight_length)
-    x = Filter(chain,noise)
 
-    params = x.chain.GetParameters()
+    x = Filter(chain,noise)
 
     #For the purpose of getting through chain
     magnet_array = np.arange(1,N+1,1)
