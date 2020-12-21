@@ -9,7 +9,11 @@ class Filter:
     def __init__(self,chain,noise):
 
         #Constants
-        self.mag = np.array([-575.4,0,0])
+        #sim
+        #self.mag = np.array([-575.4,0,0])
+        #real
+        self.mag = np.array([-151,0,0])
+
         self.dim = np.array([6.35,6.35,6.35])
         self.N = chain.segment_count
         self.P = len(chain.GetParameters()[0])
@@ -108,20 +112,30 @@ class Filter:
         return self.Bv
 
     def reweigh(self):
-        #TODO Refactor for multiple segments for things in the same chain
-        #print(self.sensor_data)
-        #print(self.Bv)
+
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
+        
+        #print("ERROR VALUE:",error)
         error = np.sum(error,axis=1)
-        #print(error)
         error = error*10
         error = -(error*error)
-        #print(error)
-        error = np.exp(error)
-        #print(error)
-         
-        #TODO If null replace with 0
+        error = np.exp(error) #<-- THIS IS THE THING RETURNING 0
+        #print("ERROR:",error)
+
+        #logsum = sci.special.logsumexp(error)
+
+        #print("LOGSUM:",logsum)
+        
+
+        #print("ERROR-LOGSUM:",(error-logsum))
+        #print("EXP OF ERROR-LOGSUM:",np.exp(error-logsum))
+        #print("SUM OF EXP OF ERROR-LOGSUM:",np.sum(np.exp(error-logsum)))
+        #print("ERROR - ERROR SUM (Prevous Algorithm):",np.divide(error,np.sum(error)))    
+
+        #error = np.exp(error-logsum)
+    
+
         error = np.divide(error,np.sum(error))
         self.weights = error
         #print("Weights:",self.weights)
@@ -129,21 +143,25 @@ class Filter:
         return error
 
     def predict(self):
-        #TODO mean of circular quantities for bend angle & direction
+        #TODO mean of circular quantities for bend direction
         #Predict from best particle, pose is probably the only useful one
         points = self.chain.GetPoints(self.magnet_array)[0]
+        bend_angle, bend_direction = self.chain.GetParameters()
+        #bend_direction = np.unwrap(bend_direction)
         index = np.argmax(self.weights)
 
         percentage = self.P//10
         largest_val = np.argpartition(self.weights,-percentage)
         
         total_weights_bounded = np.divide(self.weights[largest_val[-percentage:]],np.sum(self.weights[largest_val[-percentage:]]))
-        
-        test = points[largest_val[-percentage:]] * np.reshape(np.repeat(total_weights_bounded,3),(percentage,3))
-        test = np.sum(test,axis=0)
 
-        #return test
-        return points[index]
+        total_weights_pos_by_weight = points[largest_val[-percentage:]] * np.reshape(np.repeat(total_weights_bounded,3),(percentage,3))
+        total_weights_pos_sum = np.sum(total_weights_pos_by_weight,axis=0)
+
+        bend_angle = np.average(bend_angle[largest_val[-percentage:]])
+        bend_direction = np.arctan2(np.sum(np.sin(bend_direction)),np.sum(np.cos(bend_direction)))
+
+        return total_weights_pos_sum,bend_angle,bend_direction
 
     def closest_point(self,pos):
         points = self.chain.GetPoints(self.magnet_array)[0]
@@ -156,7 +174,7 @@ class Filter:
 
     def update(self):
 
-        self.params = self.noise(self.chain.GetParameters(),.001)
+        self.params = self.noise(self.chain.GetParameters(),.01)
         self.chain.SetParameters(*self.params)
 
     def update2(self):
@@ -210,25 +228,31 @@ if __name__ == "__main__":
     
     #Spiral for testing
     blockPrint()
-    flux, sensor_pos, magnet_pos = spiral_test(segments=2,
-                                               bend_angle=0,
-                                               bend_direction=0,
-                                               bend_length=30,
-                                               straight_length=10)
+    flux, sensor_pos, magnet_pos, alpha, beta = spiral_test(segments=1,
+                                                    bend_angle=0,
+                                                    bend_direction=0,
+                                                    bend_length=14,
+                                                    straight_length=0)
 
     print()
     print("END OF SPIRAL")
     print()
     enablePrint()
-    chain = createChain(particles=10000,
-                        segments=2,
+    chain = createChain(particles=1000,
+                        segments=1,
                         bend_angle=0,
                         bend_direction=0,
-                        bend_length=30,
-                        straight_length=10)
+                        bend_length=14,
+                        straight_length=0)
     x = Filter(chain,noise)
 
     difference = []
+    '''
+    ax = []
+    ay = []
+    bx = []
+    by = []
+    '''
 
     test = time.time()
     for i in range(len(flux)):
@@ -236,32 +260,67 @@ if __name__ == "__main__":
         x.compute_flux()
         x.reweigh()
         x.resample()
-        print(x.chain.GetPoints(x.magnet_array)[:10])
-        #print(x.predict())
-        print(magnet_pos[i])
+        #print(flux[i])
+        #print(x.chain.GetPoints(x.magnet_array)[:5])
+        #print("Predict:",x.predict()[0])
+        #print("Actual:",magnet_pos[i])
+   
+        #difference.append(np.linalg.norm(np.subtract(x.predict()[0],magnet_pos[i])))
+        #difference.append(np.subtract(x.predict()[1],alpha[i]))
+        '''
+        ax.append(x.predict()[1]/1.57 * np.cos(x.predict()[2]))
+        ay.append(x.predict()[1]/1.57 * np.sin(x.predict()[2]))
+        bx.append(alpha[i]/1.57*np.cos(beta[i]))
+        by.append(alpha[i]/1.57*np.sin(beta[i]))
+        '''
+
         x.update()
     
-    #print(len(flux)/(time.time()-test))
+    print(len(flux)/(time.time()-test))
+    '''
+    plt.style.use("ggplot")
+    plt.title("Parameter Space Plot Actual & Predicted")
+    plt.ylabel("Y")
+    plt.xlabel("X")
+    plt.plot(bx,by,linewidth=4,color='black')
+    plt.plot(ax,ay,color='yellow')
+    plt.show()
+
+    difference = [np.subtract(ax,bx),np.subtract(ay,by)]
+    difference = np.linalg.norm(difference,axis=0)
+
+    plt.title("Parameter Space Error")
+    plt.ylabel("Error")
+    plt.xlabel("Iteration")
+    plt.plot(difference,label="Error")
+    plt.plot(np.repeat(np.mean(difference),len(flux)),label="Mean: " + str(np.round(np.mean(difference),4)))
+    plt.legend()
+    plt.show()
+
+    '''
+
+
+"""
+    plt.style.use("ggplot")
+    plt.title("Bend Angle Filter Error")
+    plt.ylabel("Predicted - Actual (rad)")
+    plt.xlabel("Filter Iteration")
+    plt.plot(difference,label="Error (mm)")
+    plt.plot(np.repeat(np.std(difference),len(flux)),color='blue')
+    plt.plot(np.repeat(-np.std(difference),len(flux)),color='blue',label="Standard Deviation: " + str(np.round(np.std(difference),4)))
+    plt.legend()
+    plt.show()
+"""
+
 
 '''
-    df = pd.read_csv("data/processed.csv")
 
-    joints = max(df['joint_index'])+1
-
-    timestep = 0
-    timesteps = len(set(df['time']))
-    pos = df[['x','y','z']].to_numpy()[joints*timestep:joints*(timestep+1)]
-    
-    sensor_data = df[['sensor_x','sensor_y','sensor_z']].to_numpy()
-    sensor_data = np.reshape(sensor_data,(timesteps,joints,3))
-    new_sensor_data = []
-    pairs = 1
-    for i in range(len(sensor_data)):
-        new_sensor_data.append(sensor_data[i][::2][0:pairs])
-
-    pos = df[['x','y','z']].to_numpy()
-    sensor_pos = pos[::2][0:pairs]
-    
-    magnet_pos = pos[1::2]
-   
+    plt.style.use("ggplot")
+    plt.title("3D Position Filter Error")
+    plt.ylabel("Distance (mm)")
+    plt.xlabel("Filter Iteration")
+    plt.plot(difference,label="Error (mm)")
+    plt.plot(np.repeat(np.mean(difference),len(flux)),label="Mean: " + str(np.round(np.mean(difference),4))+"mm")
+    plt.legend()
+    plt.show()
 '''

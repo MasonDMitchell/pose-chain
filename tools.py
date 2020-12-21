@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from chain import CompositeSegment
 import numpy as np
 from segment import ConstLineSegment, CircleSegment
@@ -40,15 +41,29 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
 
     #Spiral Parameters
     a = 0
-    b = .02
+    b = .03
     c = 1
     N=segments
  
     #Create spiral
     #10*pi
-    t = np.arange(0,10,.1)
+    t = np.arange(0,10*np.pi,.1)
     x = (a + b*t) * np.cos(t)
     y = (a + b*t) * np.sin(t)
+
+    """
+    plt.style.use('ggplot')
+    fig,ax = plt.subplots()
+    ax.plot(x,y)
+    ax.set_title("Bend Direction & Bend Angle Parameter Space")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    a_circle = plt.Circle((0,0),1,fill=False,color='black',linewidth=2)
+    ax.set_xlim(-1.1,1.1)
+    ax.set_ylim(-1.1,1.1)
+    ax.add_artist(a_circle)
+    plt.show()
+    """
  
     #Attain alpha & beta values from x,y values
     vector = np.array([x,y])
@@ -74,12 +89,11 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
         flux.append(x.compute_flux())
         sensor_pos.append(x.chain.GetPoints(sensor_array))
         magnet_pos.append(x.chain.GetPoints(magnet_array))
-    
 
     sensor_pos = np.squeeze(sensor_pos)
     magnet_pos = np.squeeze(magnet_pos)
 
-    return flux,sensor_pos,magnet_pos
+    return flux,sensor_pos,magnet_pos, alpha, beta
 
 def noise(params,sigma):
    
@@ -90,7 +104,8 @@ def noise(params,sigma):
     beta = params[1::2]
 
     #Scale alpha
-    scaled_alpha = alpha/(np.pi)
+    #scaled_alpha = alpha/(np.pi)
+    scaled_alpha = alpha/(np.pi/2)
 
     #Create vector
     vector = np.array([np.cos(beta),np.sin(beta)])
@@ -109,7 +124,8 @@ def noise(params,sigma):
     #Get length of vector, and then inverse logit
     alpha = np.linalg.norm(vector,axis=0)
     alpha = np.divide(alpha,np.add(1,alpha))
-    alpha = alpha*np.pi
+    #alpha = alpha*np.pi
+    alpha = alpha*(np.pi/2)
 
     #Get radian direction of vector
     beta = np.arctan2(vector[1],vector[0])
@@ -117,19 +133,19 @@ def noise(params,sigma):
     return np.reshape(zip_lists2(alpha,beta),(len(alpha)*2,len(alpha[0])))
 
 def noise_rejection(params,sigma):
-    alpha = params[0]
-    beta = params[1]
+    alpha = params[::2]
+    beta = params[1::2]
 
     #Scale alpha 0-1
-    scaled_alpha = alpha/(np.pi)
-    
+    scaled_alpha = alpha/(np.pi/2)
+
     #Generate unit vector based on orientation
     vector = np.array([np.cos(beta),np.sin(beta)])
     
     #Scale vector based on size of alpha
     vector = np.multiply(vector,scaled_alpha)
     
-    noise = np.random.normal(0,sigma,(2,len(alpha)))
+    noise = np.random.normal(0,sigma,(2,len(alpha),len(alpha[0])))
 
     new_vector = vector + noise
  
@@ -152,17 +168,19 @@ def noise_rejection(params,sigma):
 
         #Add new noise to the original positions of the outside vectors
         if(len(outside) > 0 and reject_count < reject_stop):
-            noise = np.random.normal(0,sigma,(2,len(outside)))
+            noise = np.random.normal(0,sigma,(2,len(alpha),len(alpha[0])))
 
             new_vector[0][outside] = vector[0][outside] + noise[0]
             new_vector[1][outside] = vector[1][outside] + noise[1]
         else:
             reject = False
 
-    new_alpha = new_alpha * np.pi
+    #new_alpha = new_alpha * np.pi
+    new_alpha = new_alpha * (np.pi/2)
     new_beta = np.arctan2(new_vector[1],new_vector[0])
 
-    return np.array([new_alpha,new_beta])
+    return np.reshape(zip_lists2(new_alpha,new_beta),(len(new_alpha)*2,len(new_alpha[0])))
+    #return np.array([new_alpha,new_beta])
 
 def zip_lists(a, b):
     c = np.empty((a.size + b.size), dtype=a.dtype)
