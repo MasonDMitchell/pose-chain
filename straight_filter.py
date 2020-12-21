@@ -10,9 +10,9 @@ class Filter:
 
         #Constants
         #sim
-        #self.mag = np.array([-575.4,0,0])
+        self.mag = np.array([-575.4,0,0])
         #real
-        self.mag = np.array([-151,0,0])
+        #self.mag = np.array([-151,0,0])
 
         self.dim = np.array([6.35,6.35,6.35])
         self.N = chain.segment_count
