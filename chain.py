@@ -205,7 +205,7 @@ class CompositeSegment(AbstractSegment):
 
             segment_params = params[total_param_count:total_param_count + param_count]
             total_param_count += param_count
-
+                
             segment.SetParameters(*segment_params)
 
         instance_count = self._segments[0].GetInstanceCount()

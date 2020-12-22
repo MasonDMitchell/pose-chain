@@ -17,15 +17,15 @@ class Filter:
         self.dim = np.array([6.35,6.35,6.35])
         self.N = chain.segment_count
         self.P = len(chain.GetParameters()[0])
-        self.MAG = np.array(np.tile(self.mag,(self.N**2*self.P,1)))
-        self.DIM = np.array(np.tile(self.dim,(self.N**2*self.P,1)))
+        self.MAG = np.array(np.tile(self.mag,(2*self.P,1)))
+        self.DIM = np.array(np.tile(self.dim,(2*self.P,1)))
         self.chain = chain
         self.noise = noise
         self.sensor_data = [0,0,0]
         self.weights = []
         self.params = self.chain.GetParameters()
-        self.magnet_array = np.arange(1,self.N+1,1)
-        self.sensor_array = np.arange(.5,self.N+.5,1)
+        self.magnet_array = np.array([0,1])
+        self.sensor_array = np.array([.5])
 
     def angle_axis2(self,orientation): 
         rotvecs = []
@@ -43,8 +43,11 @@ class Filter:
         rotvecs[zero] = [1,0,0]
         
         #Ensure rotvecs have length 1
-        rotvecs = np.divide(rotvecs,np.reshape(np.repeat(np.linalg.norm(rotvecs,axis=2),3),(self.N,self.P,3)))
-        
+        try:
+            rotvecs = np.divide(rotvecs,np.reshape(np.repeat(np.linalg.norm(rotvecs,axis=2),3),(2,self.P,3)))
+        except:
+            
+            rotvecs = np.divide(rotvecs,np.reshape(np.repeat(np.linalg.norm(rotvecs,axis=2),3),(1,self.P,3)))
         #Change radians to degrees for processing
         angles = np.degrees(angles)
 
@@ -52,41 +55,29 @@ class Filter:
         
     def compute_flux(self): 
 
+        #Get the values from the magnet position
         POSm = self.chain.GetPoints(self.magnet_array)
-        POSm = POSm.flatten()
-        POSm = np.tile(POSm,self.N)
-        POSm = np.reshape(POSm,(self.P*self.N*self.N,3))
+        POSm = np.concatenate(POSm)
 
+        #Change orientation info to angle axis values
         SPINm = self.chain.GetOrientations(self.magnet_array)
         ANG, AXIS = self.angle_axis2(SPINm)
         
-        ANG = np.reshape(ANG,(self.P,self.N))
-        ANG = np.repeat(ANG,(self.N),0)
+        #Put the two magnet angle and axis together
         ANG = np.concatenate(ANG)
-        
-        AXIS = AXIS.flatten()
-        AXIS = np.tile(AXIS,self.N)
-        AXIS = np.reshape(AXIS,(self.P*self.N*self.N,3))
+        AXIS = np.concatenate(AXIS)
 
+        #Multiply sensor positions by two to get readings from both magnets
         POSo = self.chain.GetPoints(self.sensor_array) #Sensor positions
         POSo = np.concatenate(POSo)
-        POSo = np.repeat(POSo,self.N,0)
-        POSo = np.reshape(POSo,(self.P*self.N*self.N,3))
-        x = time.time()
+        POSo = np.repeat(POSo,2,0)
+        POSo = np.reshape(POSo,(self.P*2,3))
         
+        #Calculate B-field
         self.Bv = magpy.vector.getBv_magnet('box',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
 
-        # FIRST # OF SENSORS
-        # MIDDLE # OF MAGNETS
-        #LAST # OF PARTICLE
-        #print("----------------------")
-        #print(self.Bv)
-        self.Bv = np.reshape(self.Bv,(self.N,self.N,self.P,3))
-        #print(self.Bv)
-        self.Bv = np.sum(self.Bv,1)
-        #print(self.Bv)
-        self.Bv = np.reshape(self.Bv,(self.N*self.P,3))
-        #print(self.Bv)
+        self.Bv = np.split(self.Bv,2)
+        self.Bv = self.Bv[0]
 
         SPINo = self.chain.GetOrientations(self.sensor_array)
         ANGo, AXISo = self.angle_axis2(SPINo)
@@ -107,11 +98,16 @@ class Filter:
         self.Bv = np.reshape(self.Bv,(self.N,self.P,3))
         self.Bv = np.swapaxes(self.Bv,0,1)
          
-        #print("Sensor Data: {}".format(np.squeeze(self.sensor_data)))
-        #print("Bv Data: {}".format(np.squeeze(self.Bv)))
         return self.Bv
 
     def reweigh(self):
+        
+        print(self.Bv[0])
+        print("FIRST PARTICLE:")
+        print(np.mean(self.params[0]))
+        print(np.mean(self.params[1]))
+        print(self.params[2][0])
+        print(self.params[3][0])
 
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
@@ -143,8 +139,6 @@ class Filter:
         return error
 
     def predict(self):
-        #TODO mean of circular quantities for bend direction
-        #Predict from best particle, pose is probably the only useful one
         points = self.chain.GetPoints(self.magnet_array)[0]
         bend_angle, bend_direction = self.chain.GetParameters()
         #bend_direction = np.unwrap(bend_direction)
@@ -173,19 +167,26 @@ class Filter:
         return
 
     def update(self):
-
+    
+        test = self.chain.GetParameters()
+ 
         self.params = self.noise(self.chain.GetParameters(),.01)
         self.chain.SetParameters(*self.params)
 
     def update2(self):
         self.params = self.chain.GetParameters()
+         
         noise_alpha = np.random.normal(0,.1,self.P)
+        noise_alpha2 = np.random.normal(0,.1,self.P)
         new_param_alpha = self.params[0] + noise_alpha
+        new_param_alpha2 = self.params[2] + noise_alpha2
 
         noise_beta = np.random.normal(0,.1,self.P)
+        noise_beta2 = np.random.normal(0,.1,self.P)
         new_param_beta = self.params[1] + noise_beta
+        new_param_beta2 = self.params[3] + noise_beta2
 
-        self.params = np.array([new_param_alpha,new_param_beta])
+        self.params = np.array([new_param_alpha,new_param_beta,new_param_alpha2,new_param_beta2])
         self.chain.SetParameters(*self.params)
 
     def resample(self):
@@ -227,26 +228,20 @@ if __name__ == "__main__":
         sys.stdout = sys.__stdout__
     
     #Spiral for testing
-    blockPrint()
-    flux, sensor_pos, magnet_pos, alpha, beta = spiral_test(segments=1,
-                                                    bend_angle=0,
-                                                    bend_direction=0,
-                                                    bend_length=14,
-                                                    straight_length=0)
-
-    print()
+    flux, sensor_pos, magnet_pos, alpha, beta = spiral_test(bend_angle=0,
+                                                            bend_direction=0,
+                                                            bend_length=14)
+    
     print("END OF SPIRAL")
-    print()
     enablePrint()
-    chain = createChain(particles=1000,
-                        segments=1,
+    chain = createChain(particles=10000,
                         bend_angle=0,
                         bend_direction=0,
-                        bend_length=14,
-                        straight_length=0)
+                        bend_length=14)
     x = Filter(chain,noise)
 
     difference = []
+
     '''
     ax = []
     ay = []
@@ -260,7 +255,10 @@ if __name__ == "__main__":
         x.compute_flux()
         x.reweigh()
         x.resample()
-        #print(flux[i])
+        x.update()
+        print(flux[i])
+        print(alpha[i])
+        print(beta[i])
         #print(x.chain.GetPoints(x.magnet_array)[:5])
         #print("Predict:",x.predict()[0])
         #print("Actual:",magnet_pos[i])
@@ -274,7 +272,6 @@ if __name__ == "__main__":
         by.append(alpha[i]/1.57*np.sin(beta[i]))
         '''
 
-        x.update()
     
     print(len(flux)/(time.time()-test))
     '''

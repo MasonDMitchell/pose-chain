@@ -12,20 +12,18 @@ from straight_filter import Filter
 #beta is bend direction
 #S is circle segment length
 #L is straight segment length
-def createChain(particles,segments,bend_angle,bend_direction,bend_length,straight_length):
+def createChain(particles,bend_angle,bend_direction,bend_length):
     P=particles
-    N=segments
     alpha=bend_angle
     beta=bend_direction
     S=bend_length
-    L=straight_length
 
     segment_list = []
-
-    segment_list.append(ConstLineSegment(np.repeat(L,P)))
+    
+    segment_list.append(CircleSegment(S,np.repeat(alpha,P),beta))
     segment_list.append(CircleSegment(S,np.repeat(alpha,P),beta))
 
-    chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(N)]
+    chain_segments = [CompositeSegment(segment_list=segment_list) for _ in range(1)]
 
     start_orientation = R.from_rotvec([0,0,0])
     start_location = np.array([0,0,0])
@@ -37,13 +35,14 @@ def createChain(particles,segments,bend_angle,bend_direction,bend_length,straigh
     
     return chain
 
-def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
+def spiral_test(bend_angle,bend_direction,bend_length):
+
+    #DOESN'T TEST STUFF CLOSE TO PI NEED TO FIX
 
     #Spiral Parameters
     a = 0
     b = .03
     c = 1
-    N=segments
  
     #Create spiral
     #10*pi
@@ -71,20 +70,22 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
     beta = np.arctan2(vector[1],vector[0])
 
     #Create chain and filter with params
-    chain = createChain(1,segments,bend_angle,bend_direction,bend_length,straight_length)
+    chain = createChain(1,bend_angle,bend_direction,bend_length)
 
     x = Filter(chain,noise)
 
     #For the purpose of getting through chain
-    magnet_array = np.arange(1,N+1,1)
-    sensor_array = np.arange(.5,N+.5,1)
+    magnet_array = np.array([0,1])
+    sensor_array = np.array([.5])
 
     flux = []
     sensor_pos = []
     magnet_pos = []
     for i in range(len(vector[0])):
         params = np.array([[alpha[i]],[beta[i]]])
-        params = np.tile(params,(N,1))
+
+        params = np.reshape(np.repeat([params],2,axis=0),(4,1))
+
         x.chain.SetParameters(*params)
         flux.append(x.compute_flux())
         sensor_pos.append(x.chain.GetPoints(sensor_array))
@@ -124,11 +125,13 @@ def noise(params,sigma):
     #Get length of vector, and then inverse logit
     alpha = np.linalg.norm(vector,axis=0)
     alpha = np.divide(alpha,np.add(1,alpha))
-    #alpha = alpha*np.pi
     alpha = alpha*(np.pi/2)
 
     #Get radian direction of vector
     beta = np.arctan2(vector[1],vector[0])
+
+    #print(alpha)
+    #print(beta)
 
     return np.reshape(zip_lists2(alpha,beta),(len(alpha)*2,len(alpha[0])))
 
