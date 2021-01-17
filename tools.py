@@ -37,7 +37,7 @@ def createChain(particles,bend_angle,bend_direction,bend_length):
 
 def spiral_test(bend_angle,bend_direction,bend_length):
 
-    #DOESN'T TEST STUFF CLOSE TO PI NEED TO FIX
+    #TODO DOESN'T TEST STUFF CLOSE TO PI NEED TO FIX
 
     #Spiral Parameters
     a = 0

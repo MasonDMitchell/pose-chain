@@ -74,11 +74,8 @@ class Filter:
         POSo = np.reshape(POSo,(self.P*2,3))
         
         #Calculate B-field
-        self.Bv = magpy.vector.getBv_magnet('box',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
-
-        self.Bv = np.split(self.Bv,2)
-        self.Bv = self.Bv[0]
-
+        self.Bv = magpy.vector.getBv_magnet('cylinder',MAG=self.MAG,DIM=self.DIM,POSo=POSo,POSm=POSm,ANG=[ANG],AX=[AXIS],ANCH=[POSm])
+        
         SPINo = self.chain.GetOrientations(self.sensor_array)
         ANGo, AXISo = self.angle_axis2(SPINo)
         
@@ -94,7 +91,12 @@ class Filter:
 
         r = R.from_rotvec(rotvecs)
  
-        self.Bv = r.apply(self.Bv,inverse=True)
+        self.Bv = np.split(self.Bv,2)
+        self.Bv[0] = r.apply(self.Bv[0],inverse=True)
+        self.Bv[1] = r.apply(self.Bv[1],inverse=True)
+
+        self.Bv = self.Bv[0] + self.Bv[1]
+
         self.Bv = np.reshape(self.Bv,(self.N,self.P,3))
         self.Bv = np.swapaxes(self.Bv,0,1)
          
@@ -102,12 +104,11 @@ class Filter:
 
     def reweigh(self):
         
-        print(self.Bv[0])
-        print("FIRST PARTICLE:")
-        print(np.mean(self.params[0]))
-        print(np.mean(self.params[1]))
-        print(self.params[2][0])
-        print(self.params[3][0])
+        print("PREDICTED FLUX:", np.mean(self.Bv,axis=0))
+        print("BEND ANGLE 1:", np.mean(self.params[0]))
+        print("BEND ANGLE 2:", np.mean(self.params[1]))
+        print("BEND DIRECTION1:",self.params[2][0])
+        print("BEND DIRECTION2:",self.params[3][0])
 
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
         error = np.linalg.norm(error,axis=2) #Length of 3D difference
@@ -234,7 +235,7 @@ if __name__ == "__main__":
     
     print("END OF SPIRAL")
     enablePrint()
-    chain = createChain(particles=10000,
+    chain = createChain(particles=1000,
                         bend_angle=0,
                         bend_direction=0,
                         bend_length=14)
@@ -252,13 +253,14 @@ if __name__ == "__main__":
     test = time.time()
     for i in range(len(flux)):
         x.sensor_data = flux[i]
+        print("----------------------------------------------------")
+        print("ACTUAL FLUX:",flux[i])
+        print("ACTUAL ALPHA:",alpha[i])
+        print("ACTUAL BETA:",beta[i])
         x.compute_flux()
         x.reweigh()
         x.resample()
         x.update()
-        print(flux[i])
-        print(alpha[i])
-        print(beta[i])
         #print(x.chain.GetPoints(x.magnet_array)[:5])
         #print("Predict:",x.predict()[0])
         #print("Actual:",magnet_pos[i])

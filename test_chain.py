@@ -1,7 +1,7 @@
 from tools import createChain
 import numpy as np
 
-x = createChain(1,0,0,14,0)
+x = createChain(1,0,0,14)
 print(x.GetPoints(np.arange(0,1.5,.5)))
 print(x.GetPoints(np.array([.5])))
 print(x.GetPoints(np.array([0,1])))
