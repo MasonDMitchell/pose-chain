@@ -63,7 +63,7 @@ if start == True:
     bend_direction = st.text("Bend Direction:")
     pos = st.text("")
 
-    simulation = [0,0,0]
+    simulation = [.0001,.0001,.0001]
     
     if mode == "Live Mode":
         ser = serial.Serial('/dev/ttyACM0')
@@ -96,6 +96,8 @@ if start == True:
             #simulation = [-8.4699,0,0]
             
             serial_zero_data = serial_zero_data - simulation
+            #TODO Delete bottom line
+            #serial_zero_data = serial_zero_data
 
 
     if graph_sensor == True: 
@@ -151,6 +153,10 @@ if start == True:
                 serial_data = [0,0,0]
 
             serial_data = np.array(serial_data)/1000
+
+            serial_data[0] = serial_data[0] * 3.88296
+            serial_data[1] = serial_data[1] * 1.86386
+            serial_data[2] = (serial_data[2] * -2.7271) - 1.33077 
             if zero_data == True:
                 serial_data = np.subtract(serial_data,serial_zero_data)
 
@@ -178,6 +184,9 @@ if start == True:
             best_data.append(x.sensor_data)
             #Update filter data plot
             if i % 10 == 0 and i > 100:
+                non_zero = np.subtract(x.sensor_data,simulation)
+                #print(x.sensor_data)
+                #print("Real",non_zero/np.linalg.norm(non_zero))
                 data_plot.line_chart(best_data[-100:-1])
             if mode == "Training Mode":
                 #Plot real sensor data

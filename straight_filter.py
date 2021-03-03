@@ -10,9 +10,10 @@ class Filter:
 
         #Constants
         #sim
-        #self.mag = np.array([-575.4,0,0])
+        self.mag = np.array([-575.4,0,0])
         #real
-        self.mag = np.array([-151,0,0])
+        #self.mag = np.array([-151,0,0])
+        #self.mag = np.array([-60,-30,30])
 
         self.dim = np.array([6.35,6.35,6.35])
         self.N = chain.segment_count
@@ -120,10 +121,10 @@ class Filter:
         error = np.sum(error,axis=1)
         error = error*10
         error = -(error*error)
-        error = np.exp(error) #<-- THIS IS THE THING RETURNING 0
+        #error = np.exp(error) #<-- THIS IS THE THING RETURNING 0
         #print("ERROR:",error)
 
-        #logsum = sci.special.logsumexp(error)
+        logsum = sci.special.logsumexp(error)
 
         #print("LOGSUM:",logsum)
         
@@ -133,10 +134,9 @@ class Filter:
         #print("SUM OF EXP OF ERROR-LOGSUM:",np.sum(np.exp(error-logsum)))
         #print("ERROR - ERROR SUM (Prevous Algorithm):",np.divide(error,np.sum(error)))    
 
-        #error = np.exp(error-logsum)
-    
+        error = np.exp(error-logsum)
 
-        error = np.divide(error,np.sum(error))
+        #error = np.divide(error,np.sum(error))
         self.weights = error
         #print("Weights:",self.weights)
 
@@ -269,7 +269,13 @@ if __name__ == "__main__":
         #difference.append(np.subtract(x.predict()[1],alpha[i]))
         '''
         ax.append(x.predict()[1]/1.57 * np.cos(x.predict()[2]))
-        ay.append(x.predict()[1]/1.57 * np.sin(x.predict()[2]))
+   ain = createChain(particles=1000,
+                        segments=1,
+                        bend_angle=0,
+                        bend_direction=0,
+                        bend_length=14,
+                        straight_length=0)
+    ay.append(x.predict()[1]/1.57 * np.sin(x.predict()[2]))
         bx.append(alpha[i]/1.57*np.cos(beta[i]))
         by.append(alpha[i]/1.57*np.sin(beta[i]))
         '''
