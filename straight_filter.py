@@ -10,7 +10,7 @@ class Filter:
 
         #Constants
         #sim
-        self.mag = np.array([-575.4,0,0])
+        self.mag = np.array([-1320,0,0])
         #real
         #self.mag = np.array([-151,0,0])
         #self.mag = np.array([-60,-30,30])
@@ -113,13 +113,16 @@ class Filter:
         return self.Bv
 
     def reweigh(self):
-
         error = np.subtract(self.sensor_data,self.Bv) #3D Difference between sensor and particle data
-        error = np.linalg.norm(error,axis=2) #Length of 3D difference
+        #TODO FIX WAS ADDED TO REMOVE DATA FROM 1st VALUE
+        error = np.squeeze(error)
+        error[:,0] = 0
+        error = np.linalg.norm(error,axis=1) #Length of 3D difference
         
         #print("ERROR VALUE:",error)
-        error = np.sum(error,axis=1)
-        error = error*10
+        #TODO Removed below which hurts multi-chain systems
+        #error = np.sum(error,axis=1)
+        error = error*100
         error = -(error*error)
         #error = np.exp(error) #<-- THIS IS THE THING RETURNING 0
         #print("ERROR:",error)
@@ -174,7 +177,7 @@ class Filter:
 
     def update(self):
 
-        self.params = self.noise(self.chain.GetParameters(),.01)
+        self.params = self.noise(self.chain.GetParameters(),.001)
         self.chain.SetParameters(*self.params)
 
     def update2(self):
@@ -227,7 +230,7 @@ if __name__ == "__main__":
         sys.stdout = sys.__stdout__
     
     #Spiral for testing
-    blockPrint()
+    #blockPrint()
     flux, sensor_pos, magnet_pos, alpha, beta = spiral_test(segments=1,
                                                     bend_angle=0,
                                                     bend_direction=0,
@@ -238,7 +241,7 @@ if __name__ == "__main__":
     print("END OF SPIRAL")
     print()
     enablePrint()
-    chain = createChain(particles=1000,
+    chain = createChain(particles=100,
                         segments=1,
                         bend_angle=0,
                         bend_direction=0,
@@ -246,7 +249,17 @@ if __name__ == "__main__":
                         straight_length=0)
     x = Filter(chain,noise)
 
+
+    chain = createChain(particles=1000,
+                        segments=1,
+                        bend_angle=0,
+                        bend_direction=0,
+                        bend_length=14,
+                        straight_length=0)
+    y = Filter(chain,noise)
+
     difference = []
+    difference2 = []
     '''
     ax = []
     ay = []
@@ -260,29 +273,31 @@ if __name__ == "__main__":
         x.compute_flux()
         x.reweigh()
         x.resample()
-        #print(flux[i])
-        #print(x.chain.GetPoints(x.magnet_array)[:5])
-        #print("Predict:",x.predict()[0])
-        #print("Actual:",magnet_pos[i])
-   
-        #difference.append(np.linalg.norm(np.subtract(x.predict()[0],magnet_pos[i])))
-        #difference.append(np.subtract(x.predict()[1],alpha[i]))
-        '''
-        ax.append(x.predict()[1]/1.57 * np.cos(x.predict()[2]))
-   ain = createChain(particles=1000,
-                        segments=1,
-                        bend_angle=0,
-                        bend_direction=0,
-                        bend_length=14,
-                        straight_length=0)
-    ay.append(x.predict()[1]/1.57 * np.sin(x.predict()[2]))
-        bx.append(alpha[i]/1.57*np.cos(beta[i]))
-        by.append(alpha[i]/1.57*np.sin(beta[i]))
-        '''
-
+        difference.append(np.linalg.norm(np.subtract(x.predict()[0],magnet_pos[i])))
         x.update()
+
+        y.sensor_data = flux[i]
+        y.compute_flux()
+        y.reweigh()
+        y.resample()
+        difference2.append(np.linalg.norm(np.subtract(y.predict()[0],magnet_pos[i])))
+        y.update()
     
     print(len(flux)/(time.time()-test))
+    
+    plt.style.use("seaborn-paper")
+    plt.title("3D Position Filter Error",fontsize=20)
+    plt.ylabel("Distance (mm)",fontsize=16)
+    plt.xlabel("Filter Iteration",fontsize=16)
+    plt.plot(difference,label="100 Particle Error (mm)",linewidth=.5)
+    plt.plot(difference2,label="1000 Particle Error (mm)",linewidth=.5)
+    plt.plot(np.repeat(np.mean(difference),len(flux)),label="100 Particle Mean Error: " + str(np.round(np.mean(difference),4))+"mm",linewidth=2)
+    plt.plot(np.repeat(np.mean(difference2),len(flux)),label="1000 Particle Mean Error: " + str(np.round(np.mean(difference2),4))+"mm",linewidth=2)
+    plt.legend(fontsize=14)
+    plt.tick_params(axis='both',which='major',labelsize=14)
+    plt.tick_params(axis='both',which='minor',labelsize=14)
+    plt.show()
+    
     '''
     plt.style.use("ggplot")
     plt.title("Parameter Space Plot Actual & Predicted")
@@ -319,14 +334,3 @@ if __name__ == "__main__":
 """
 
 
-'''
-
-    plt.style.use("ggplot")
-    plt.title("3D Position Filter Error")
-    plt.ylabel("Distance (mm)")
-    plt.xlabel("Filter Iteration")
-    plt.plot(difference,label="Error (mm)")
-    plt.plot(np.repeat(np.mean(difference),len(flux)),label="Mean: " + str(np.round(np.mean(difference),4))+"mm")
-    plt.legend()
-    plt.show()
-'''

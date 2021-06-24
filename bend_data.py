@@ -4,10 +4,12 @@ import time
 import pandas as pd
 
 ser = serial.Serial('/dev/ttyACM0')
-time.sleep(2)
+time.sleep(6)
 total_readings = []
 init_time = time.time()
-while(time.time() - init_time < 40):
+Name = "90deg_3"
+print(Name)
+while(time.time() - init_time < 10):
     serial_data = ser.readline()
     serial_data = str(serial_data)[2:-5].split(',')
     try:
@@ -26,7 +28,7 @@ while(time.time() - init_time < 40):
         total_readings = []
     else:
         total_readings.append(serial_data)
-        print(serial_data)
+        #print(serial_data)
 
 total_readings = total_readings[1:]
 total_readings = np.array(total_readings)
@@ -34,8 +36,7 @@ print(total_readings)
 
 print("Num of Readings")
 print(len(total_readings))
-
-pd.DataFrame(total_readings).to_csv("calibrate_data/0dir/" + "90deg_1" + ".csv",header=None,index=None)
+pd.DataFrame(total_readings).to_csv("calibrate_data/pidir/" + Name + ".csv",header=None,index=None)
 
 print("Averages:")
 print("X value:",np.mean(total_readings[:,0]))

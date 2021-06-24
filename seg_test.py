@@ -22,7 +22,6 @@ rotvec = [0,0,1]
 
 seg.apply_rotvec(rotvec,[1,0,0])
 
-
 x = seg.bend_line(rotvec)
 ax.plot(x[0],x[1],x[2],color='black')
 

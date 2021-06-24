@@ -47,23 +47,28 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
  
     #Create spiral
     #10*pi
-    t = np.arange(0,10*np.pi,.1)
+    
+    t = np.arange(0,10*np.pi,.01)
     x = (a + b*t) * np.cos(t)
     y = (a + b*t) * np.sin(t)
-
-    """
+    '''
+    t = np.arange(0,10*np.pi,.1)
+    theta=t
+    phi=(a+b*t)
+    
+    x = phi * np.cos(theta)
+    y = phi * np.sin(theta)
+    '''
     plt.style.use('ggplot')
     fig,ax = plt.subplots()
     ax.plot(x,y)
     ax.set_title("Bend Direction & Bend Angle Parameter Space")
     ax.set_xlabel("X")
     ax.set_ylabel("Y")
-    a_circle = plt.Circle((0,0),1,fill=False,color='black',linewidth=2)
     ax.set_xlim(-1.1,1.1)
     ax.set_ylim(-1.1,1.1)
-    ax.add_artist(a_circle)
     plt.show()
-    """
+    
  
     #Attain alpha & beta values from x,y values
     vector = np.array([x,y])

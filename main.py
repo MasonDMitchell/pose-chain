@@ -53,7 +53,7 @@ if mode == 'Live Mode':
 
 start = st.button("Run Filter",key="Start Button")
 print("Pairs:",N)
-chain = createChain(particles,N,0,0,14,0)
+chain = createChain(particles,N,0,0,15,0)
 if start == True:
     x = Filter(chain,noise)
  
@@ -153,10 +153,15 @@ if start == True:
                 serial_data = [0,0,0]
 
             serial_data = np.array(serial_data)/1000
-
+            print(serial_data)
+            
+            '''
             serial_data[0] = serial_data[0] * 3.88296
-            serial_data[1] = serial_data[1] * 1.86386
-            serial_data[2] = (serial_data[2] * -2.7271) - 1.33077 
+            #serial_data[1] = serial_data[1] * 1.86386
+            #serial_data[2] = (serial_data[2] * -2.7271) - 1.33077 
+            serial_data[1] = (5.2799/(1+np.exp(-2.05192*(serial_data[1])))) - (5.2799/2)
+            serial_data[2] = (4.51854/(1+np.exp(-4.07619*(serial_data[2]+.437308)))) - (4.51854/2)
+            '''
             if zero_data == True:
                 serial_data = np.subtract(serial_data,serial_zero_data)
 
@@ -173,15 +178,23 @@ if start == True:
         
         #Filter stuff
 
+
+        '''
         x.compute_flux()
         x.reweigh()
         x.resample()
+        
         pos, bend_a,bend_d = x.predict()
         x.update()
- 
+        '''
+        pos,bend_a,bend_d = [1,1,1]
+
         if graph_sensor == True:
             #Save best filter data
             best_data.append(x.sensor_data)
+            if(len(best_data) >100):
+                best_data = best_data[-100:-1]
+            print(len(best_data))
             #Update filter data plot
             if i % 10 == 0 and i > 100:
                 non_zero = np.subtract(x.sensor_data,simulation)
