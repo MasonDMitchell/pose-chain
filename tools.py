@@ -47,19 +47,32 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
  
     #Create spiral
     #10*pi
-    
+    '''
     t = np.arange(0,10*np.pi,.01)
     x = (a + b*t) * np.cos(t)
     y = (a + b*t) * np.sin(t)
     '''
-    t = np.arange(0,10*np.pi,.1)
+
+    t = np.arange(0,10*np.pi,.01)
+    '''
+    #Spiral:
     theta=t
     phi=(a+b*t)
-    
+    '''
+    '''
+    #Flower:
+    theta=(t/10)**2
+    phi=np.sin(t)
+    '''
+    #Seagull:
+    theta=np.sin(t)+np.pi/2
+    phi=np.abs(np.sin(t))
+
     x = phi * np.cos(theta)
     y = phi * np.sin(theta)
-    '''
-    plt.style.use('ggplot')
+    
+    ''' 
+    plt.style.use('seaborn-paper')
     fig,ax = plt.subplots()
     ax.plot(x,y)
     ax.set_title("Bend Direction & Bend Angle Parameter Space")
@@ -68,7 +81,7 @@ def spiral_test(segments,bend_angle,bend_direction,bend_length,straight_length):
     ax.set_xlim(-1.1,1.1)
     ax.set_ylim(-1.1,1.1)
     plt.show()
-    
+    '''
  
     #Attain alpha & beta values from x,y values
     vector = np.array([x,y])
@@ -137,60 +150,37 @@ def noise(params,sigma):
 
     return np.reshape(zip_lists2(alpha,beta),(len(alpha)*2,len(alpha[0])))
 
+
 def noise_rejection(params,sigma):
-    alpha = params[::2]
-    beta = params[1::2]
-
-    #Scale alpha 0-1
-    scaled_alpha = alpha/(np.pi/2)
-
-    #Generate unit vector based on orientation
-    vector = np.array([np.cos(beta),np.sin(beta)])
+    phi_max = np.pi/2
     
-    #Scale vector based on size of alpha
-    vector = np.multiply(vector,scaled_alpha)
-    
-    noise = np.random.normal(0,sigma,(2,len(alpha),len(alpha[0])))
+    phi = params[::2] 
+    theta = params[1::2]
 
-    new_vector = vector + noise
- 
-    reject = True
-    reject_count = 0
-    reject_stop = 4
-    while(reject):
-        
-        #Determine distance from origin
-        new_alpha = np.linalg.norm(new_vector,axis=0)
+    scaled_phi = phi/phi_max
 
-        #Determine vectors that don't fall into the circle
-        outside = np.where(new_alpha > 1)[0]
-        #print("Reject Count: " + str(reject_count) + " Reject Amount: " + str(len(outside)))
-        #Move all remaining vectors back to initial positions after x loops and terminate loop
-        reject_count = reject_count + 1
-        if(reject_count >= reject_stop):
-            new_vector[0][outside] = vector[0][outside]
-            new_vector[1][outside] = vector[1][outside]
+    noise = np.random.normal(0,sigma,(2,len(phi),len(phi[0])))
 
-        #Add new noise to the original positions of the outside vectors
-        if(len(outside) > 0 and reject_count < reject_stop):
-            noise = np.random.normal(0,sigma,(2,len(alpha),len(alpha[0])))
+    vectors = np.multiply(scaled_phi,np.array([np.cos(theta),np.sin(theta)]))
 
-            new_vector[0][outside] = vector[0][outside] + noise[0]
-            new_vector[1][outside] = vector[1][outside] + noise[1]
-        else:
-            reject = False
+    new_vectors = vectors + noise
 
-    #new_alpha = new_alpha * np.pi
-    new_alpha = new_alpha * (np.pi/2)
-    new_beta = np.arctan2(new_vector[1],new_vector[0])
+    for _ in range(5):
+        new_phi = np.linalg.norm(new_vectors,axis=0)
+        bad_phi_idxs = np.argwhere(new_phi>1)
+        if(bad_phi_idxs.shape[0] == 0):
+            break
+        noise = np.random.normal(0,sigma,(2,len(bad_phi_idxs),1))
+        new_vectors[bad_phi_idxs] = vectors[bad_phi_idxs] + noise
 
-    return np.reshape(zip_lists2(new_alpha,new_beta),(len(new_alpha)*2,len(new_alpha[0])))
-    #return np.array([new_alpha,new_beta])
+    new_phi = np.linalg.norm(new_vectors,axis=0)
+    bad_phi_idxs = np.argwhere(new_phi>1)
+    new_vectors[bad_phi_idxs] = vectors[bad_phi_idxs]
 
-def zip_lists(a, b):
-    c = np.empty((a.size + b.size), dtype=a.dtype)
-    c[0::2] = a
-    c[1::2] = b
-    return c
+    phi = phi_max * np.linalg.norm(new_vectors,axis=0)
+    theta = np.arctan2(new_vectors[1],new_vectors[0])
+
+    return np.reshape(zip_lists2(phi,theta),(len(phi)*2,len(phi[0])))
+
 def zip_lists2(a, b):
     return np.ravel(np.column_stack((a,b)))
